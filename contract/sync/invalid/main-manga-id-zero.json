@@ -1,0 +1,16 @@
+{
+  "name": "main-manga-id-zero",
+  "description": "mainMangaId >= 1",
+  "expect": "schema",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000112",
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 0
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  }
+}

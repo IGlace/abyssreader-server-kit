@@ -1,0 +1,16 @@
+{
+  "name": "timestamp-with-micros",
+  "description": "6 fractional digits (Dart toIso8601String with microseconds) are rejected; exactly 3 are required",
+  "expect": "schema",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000115",
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T14:00:00.000123Z",
+    "deleted": false
+  }
+}

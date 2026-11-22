@@ -1,0 +1,39 @@
+{
+  "items": [
+    {
+      "opId": "00000000-0000-4000-8000-000000000012",
+      "kind": "chapterMark",
+      "key": {
+        "mainMangaId": 1498,
+        "sourceSlug": "toonily",
+        "chapterUrl": "/serie/a-wonderful-new-world-96b3391d/chapter-1/?style=list"
+      },
+      "data": {
+        "chapterNumber": 1,
+        "chapterName": "Chapter 1",
+        "read": false,
+        "lastPageRead": 5,
+        "totalPages": 21,
+        "bookmarked": true
+      },
+      "clientUpdatedAt": "2026-10-14T10:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000013",
+      "kind": "position",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": {
+        "sourceSlug": "toonily",
+        "chapterUrl": "/serie/a-wonderful-new-world-96b3391d/chapter-1/?style=list",
+        "chapterNumber": 1,
+        "chapterName": "Chapter 1",
+        "pageIndex": 5
+      },
+      "clientUpdatedAt": "2026-10-14T10:00:00.000Z",
+      "deleted": false
+    }
+  ]
+}

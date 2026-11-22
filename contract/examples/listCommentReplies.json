@@ -1,0 +1,47 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "listCommentReplies",
+  "summary": "Replies, oldest first, anonymously.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/comments/9001/replies",
+    "query": {
+      "size": 1
+    },
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": 9004,
+          "titleId": 42,
+          "parentId": 9001,
+          "text": "Same here!",
+          "imageUrl": null,
+          "spoiler": false,
+          "author": {
+            "id": 1003,
+            "displayName": "moonlit",
+            "avatarUrl": null
+          },
+          "upvotes": 2,
+          "downvotes": 0,
+          "replyCount": 0,
+          "createdAt": "2026-11-11T08:12:44.000Z",
+          "updatedAt": "2026-11-11T08:12:44.000Z",
+          "me": null
+        }
+      ],
+      "page": 1,
+      "size": 1,
+      "totalItems": 2,
+      "hasMore": true
+    }
+  }
+}

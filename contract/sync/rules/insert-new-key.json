@@ -1,0 +1,42 @@
+{
+  "name": "insert-new-key",
+  "description": "nothing stored → applied",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "stored": null,
+  "incoming": {
+    "opId": "00000000-0000-4000-8000-000000000215",
+    "kind": "inbox",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": {
+      "sourceSlug": "toonily",
+      "latestChapterNumber": 85,
+      "latestChapterName": "Chapter 85",
+      "latestChapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-85/",
+      "detectedAt": "2026-10-10T13:55:00.000Z",
+      "seen": false
+    },
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  },
+  "expected": {
+    "status": "applied",
+    "storedAfter": {
+      "kind": "inbox",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": {
+        "sourceSlug": "toonily",
+        "latestChapterNumber": 85,
+        "latestChapterName": "Chapter 85",
+        "latestChapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-85/",
+        "detectedAt": "2026-10-10T13:55:00.000Z",
+        "seen": false
+      },
+      "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+      "deleted": false
+    }
+  }
+}

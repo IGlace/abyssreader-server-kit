@@ -1,0 +1,42 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "getDefinitionManifest",
+  "summary": "One live definition and one signed revocation.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/definitions/manifest",
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "ETag": "\"m-6cb52fae6870bbcc\""
+    },
+    "body": {
+      "items": [
+        {
+          "sourceSlug": "paper-moon",
+          "definitionVersion": 29912250,
+          "contentHash": "e02c1d986019248c9d517e56b78cedf11fc0ba095b3f614962b5a3f55920cc02",
+          "signature": "QJS3Cv1SLzz5mnhBi4BN797Kt0TZpqF5GLZq767FOmnscB67Gk4ZchoUU/YAVyoZKNktgDokummEM5XT2lYtBA==",
+          "keyId": "k2",
+          "minAppVersion": null,
+          "revoked": false
+        },
+        {
+          "sourceSlug": "luna-es",
+          "definitionVersion": 29849040,
+          "contentHash": null,
+          "signature": "o3+UlnHtFOkaFE0ysiVy2xygd5UF00a4OOs8YPN/f80VXbOWLjt3SfOQsmYCjDTzKvh+v1aYaclyE3+znmWJBQ==",
+          "keyId": "k1",
+          "minAppVersion": null,
+          "revoked": true
+        }
+      ]
+    }
+  }
+}

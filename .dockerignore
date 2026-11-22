@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright 2026 Abyss Reader
+.git
+.github
+.env
+data
+import
+examples
+bin
+dist
+contract
+*.md
+
+# The server embeds the sync schema (contract.go); the rest of contract/ stays out.
+!contract/sync/sync.schema.json
+
+# CI-only contract validator and its local dependencies.
+/scripts/contract/

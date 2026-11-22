@@ -1,0 +1,25 @@
+{
+  "name": "chapter-url-not-http",
+  "description": "chapterUrl must be http(s)",
+  "expect": "schema",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000103",
+    "kind": "chapterMark",
+    "key": {
+      "mainMangaId": 1498,
+      "sourceSlug": "toonily",
+      "chapterUrl": "ftp://toonily.com/x"
+    },
+    "data": {
+      "chapterNumber": 84,
+      "chapterName": "Chapter 84",
+      "read": true,
+      "lastPageRead": 22,
+      "totalPages": 22,
+      "bookmarked": false
+    },
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  }
+}

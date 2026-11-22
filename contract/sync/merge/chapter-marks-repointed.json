@@ -1,0 +1,86 @@
+{
+  "name": "chapter-marks-repointed",
+  "description": "chapter marks only change mainMangaId A → B; their key is source + URL, so no tombstones",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "loserId": 2001,
+  "winnerId": 1001,
+  "before": [
+    {
+      "kind": "chapterMark",
+      "key": {
+        "mainMangaId": 2001,
+        "sourceSlug": "toonily",
+        "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/"
+      },
+      "data": {
+        "chapterNumber": 84,
+        "chapterName": "Chapter 84",
+        "read": true,
+        "lastPageRead": 22,
+        "totalPages": 22,
+        "bookmarked": false
+      },
+      "clientUpdatedAt": "2026-10-10T10:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "kind": "chapterMark",
+      "key": {
+        "mainMangaId": 2001,
+        "sourceSlug": "toonily",
+        "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-85/"
+      },
+      "data": {
+        "chapterNumber": 85,
+        "chapterName": "Chapter 85",
+        "read": false,
+        "lastPageRead": 5,
+        "totalPages": 22,
+        "bookmarked": true
+      },
+      "clientUpdatedAt": "2026-10-10T10:01:00.000Z",
+      "deleted": false
+    }
+  ],
+  "expected": {
+    "after": [
+      {
+        "kind": "chapterMark",
+        "key": {
+          "mainMangaId": 1001,
+          "sourceSlug": "toonily",
+          "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/"
+        },
+        "data": {
+          "chapterNumber": 84,
+          "chapterName": "Chapter 84",
+          "read": true,
+          "lastPageRead": 22,
+          "totalPages": 22,
+          "bookmarked": false
+        },
+        "clientUpdatedAt": "2026-10-10T10:00:00.000Z",
+        "deleted": false
+      },
+      {
+        "kind": "chapterMark",
+        "key": {
+          "mainMangaId": 1001,
+          "sourceSlug": "toonily",
+          "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-85/"
+        },
+        "data": {
+          "chapterNumber": 85,
+          "chapterName": "Chapter 85",
+          "read": false,
+          "lastPageRead": 5,
+          "totalPages": 22,
+          "bookmarked": true
+        },
+        "clientUpdatedAt": "2026-10-10T10:01:00.000Z",
+        "deleted": false
+      }
+    ],
+    "tombstones": []
+  }
+}

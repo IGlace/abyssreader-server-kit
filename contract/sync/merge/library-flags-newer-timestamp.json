@@ -1,0 +1,87 @@
+{
+  "name": "library-flags-newer-timestamp",
+  "description": "favorite and blacklist on both A and B: B keeps the flag with the newer timestamp of the two (A's favorite is newer, B's blacklist is newer)",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "loserId": 2001,
+  "winnerId": 1001,
+  "before": [
+    {
+      "kind": "favorite",
+      "key": {
+        "mainMangaId": 2001
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T12:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "kind": "favorite",
+      "key": {
+        "mainMangaId": 1001
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T10:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "kind": "blacklist",
+      "key": {
+        "mainMangaId": 2001
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T08:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "kind": "blacklist",
+      "key": {
+        "mainMangaId": 1001
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T09:30:00.000Z",
+      "deleted": false
+    }
+  ],
+  "expected": {
+    "after": [
+      {
+        "kind": "favorite",
+        "key": {
+          "mainMangaId": 1001
+        },
+        "data": null,
+        "clientUpdatedAt": "2026-10-10T12:00:00.000Z",
+        "deleted": false
+      },
+      {
+        "kind": "blacklist",
+        "key": {
+          "mainMangaId": 1001
+        },
+        "data": null,
+        "clientUpdatedAt": "2026-10-10T09:30:00.000Z",
+        "deleted": false
+      }
+    ],
+    "tombstones": [
+      {
+        "kind": "favorite",
+        "key": {
+          "mainMangaId": 2001
+        },
+        "data": null,
+        "clientUpdatedAt": "2026-10-10T15:00:00.000Z",
+        "deleted": true
+      },
+      {
+        "kind": "blacklist",
+        "key": {
+          "mainMangaId": 2001
+        },
+        "data": null,
+        "clientUpdatedAt": "2026-10-10T15:00:00.000Z",
+        "deleted": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "equal-other-kind-stale",
+  "description": "equal timestamp on a non-position kind keeps the stored value",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "stored": {
+    "kind": "chapterMark",
+    "key": {
+      "mainMangaId": 1498,
+      "sourceSlug": "toonily",
+      "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/"
+    },
+    "data": {
+      "chapterNumber": 84,
+      "chapterName": "Chapter 84",
+      "read": true,
+      "lastPageRead": 22,
+      "totalPages": 22,
+      "bookmarked": false
+    },
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  },
+  "incoming": {
+    "opId": "00000000-0000-4000-8000-000000000207",
+    "kind": "chapterMark",
+    "key": {
+      "mainMangaId": 1498,
+      "sourceSlug": "toonily",
+      "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/"
+    },
+    "data": {
+      "chapterNumber": 84,
+      "chapterName": "Chapter 84",
+      "read": true,
+      "lastPageRead": 22,
+      "totalPages": 22,
+      "bookmarked": true
+    },
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  },
+  "expected": {
+    "status": "stale",
+    "storedAfter": {
+      "kind": "chapterMark",
+      "key": {
+        "mainMangaId": 1498,
+        "sourceSlug": "toonily",
+        "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/"
+      },
+      "data": {
+        "chapterNumber": 84,
+        "chapterName": "Chapter 84",
+        "read": true,
+        "lastPageRead": 22,
+        "totalPages": 22,
+        "bookmarked": false
+      },
+      "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+      "deleted": false
+    }
+  }
+}

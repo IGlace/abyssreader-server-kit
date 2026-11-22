@@ -1,0 +1,42 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "getCollection",
+  "summary": "A collection by id; public, signed in here.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/collections/77",
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en",
+      "Authorization": "Bearer eyJhbGciOiJIUzUxMiJ9.opaque-session-token.example"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": 77,
+      "slug": "cozy-fantasy-for-rainy-days",
+      "name": "Cozy fantasy for rainy days",
+      "description": "Gentle stories with warm light.",
+      "owner": {
+        "id": 1002,
+        "displayName": "inkfox",
+        "avatarUrl": "https://images.example.net/avatars/inkfox.png"
+      },
+      "titleCount": 2,
+      "commentCount": 1,
+      "upvotes": 31,
+      "downvotes": 2,
+      "views": 880,
+      "coverUrls": [
+        "https://lantern.example.org/covers/42-1a2b3c.webp"
+      ],
+      "createdAt": "2026-08-14T10:00:00.000Z",
+      "updatedAt": "2026-11-01T16:20:00.000Z",
+      "me": {
+        "vote": "up"
+      }
+    }
+  }
+}

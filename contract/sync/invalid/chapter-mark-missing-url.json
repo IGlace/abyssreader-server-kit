@@ -1,0 +1,24 @@
+{
+  "name": "chapter-mark-missing-url",
+  "description": "chapterMark key without chapterUrl",
+  "expect": "schema",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000102",
+    "kind": "chapterMark",
+    "key": {
+      "mainMangaId": 1498,
+      "sourceSlug": "toonily"
+    },
+    "data": {
+      "chapterNumber": 84,
+      "chapterName": "Chapter 84",
+      "read": true,
+      "lastPageRead": 22,
+      "totalPages": 22,
+      "bookmarked": false
+    },
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  }
+}

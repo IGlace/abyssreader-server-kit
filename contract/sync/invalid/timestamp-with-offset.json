@@ -1,0 +1,16 @@
+{
+  "name": "timestamp-with-offset",
+  "description": "clientUpdatedAt must be UTC with a literal Z",
+  "expect": "schema",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000106",
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T16:00:00.000+02:00",
+    "deleted": false
+  }
+}

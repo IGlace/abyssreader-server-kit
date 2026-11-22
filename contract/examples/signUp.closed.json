@@ -1,0 +1,26 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "signUp",
+  "summary": "The operator closed sign-up.",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/auth/sign-up",
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en"
+    },
+    "body": {
+      "displayName": "quietreader",
+      "email": "reader@example.com",
+      "password": "correct-horse-7"
+    }
+  },
+  "response": {
+    "status": 403,
+    "body": {
+      "code": "sign_up_closed",
+      "message": "Sign-up is closed on this server."
+    }
+  }
+}

@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright 2026 Abyss Reader
+# Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)
+# Required Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.
+#
+# Redocly CLI lint configuration for the server contract.
+# Every rule of `recommended-strict` is an error; the two accepted exceptions live in
+# .redocly.lint-ignore.yaml with their reasons.
+extends:
+  - recommended-strict
+rules:
+  info-license-strict: error
+  operation-operationId: error
+  operation-operationId-unique: error
+  operation-summary: error
+  operation-tag-defined: error
+  operation-4xx-response: error
+  tag-description: error
+  security-defined: error
+  no-unused-components: error
+  no-invalid-media-type-examples: error
+  no-server-trailing-slash: error
+  path-declaration-must-exist: error
+  path-not-include-query: error
+  paths-kebab-case: error

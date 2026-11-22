@@ -1,0 +1,22 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "startGoogleSignIn",
+  "summary": "Opened in a browser tab, with no headers; the server redirects to Google.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/auth/google/start",
+    "query": {
+      "state": "q8V2c1Lx0mT7pR3sZ9aB",
+      "codeChallenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+      "codeChallengeMethod": "S256"
+    },
+    "headers": {}
+  },
+  "response": {
+    "status": 302,
+    "headers": {
+      "Location": "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=1234567890-example.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Flantern.example.org%2Fapi%2Fv1%2Fauth%2Fgoogle%2Fcallback&scope=openid%20email%20profile&state=srv-7f3a9c"
+    }
+  }
+}

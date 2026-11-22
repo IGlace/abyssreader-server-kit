@@ -1,0 +1,42 @@
+{
+  "name": "older-stale",
+  "description": "incoming older than the stored row → stale, row unchanged",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "stored": {
+    "kind": "rating",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": {
+      "opinion": "up"
+    },
+    "clientUpdatedAt": "2026-10-10T14:30:00.000Z",
+    "deleted": false
+  },
+  "incoming": {
+    "opId": "00000000-0000-4000-8000-000000000202",
+    "kind": "rating",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": {
+      "opinion": "down"
+    },
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  },
+  "expected": {
+    "status": "stale",
+    "storedAfter": {
+      "kind": "rating",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": {
+        "opinion": "up"
+      },
+      "clientUpdatedAt": "2026-10-10T14:30:00.000Z",
+      "deleted": false
+    }
+  }
+}

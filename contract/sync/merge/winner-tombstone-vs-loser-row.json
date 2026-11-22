@@ -1,0 +1,80 @@
+{
+  "name": "winner-tombstone-vs-loser-row",
+  "description": "a loser row meets a winner tombstone under §5: the newer wins (A's favorite beats B's older tombstone; B's newer rating tombstone beats A's rating, so B has no rating)",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "loserId": 2001,
+  "winnerId": 1001,
+  "before": [
+    {
+      "kind": "favorite",
+      "key": {
+        "mainMangaId": 2001
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T12:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "kind": "favorite",
+      "key": {
+        "mainMangaId": 1001
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T11:00:00.000Z",
+      "deleted": true
+    },
+    {
+      "kind": "rating",
+      "key": {
+        "mainMangaId": 2001
+      },
+      "data": {
+        "opinion": "up"
+      },
+      "clientUpdatedAt": "2026-10-10T10:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "kind": "rating",
+      "key": {
+        "mainMangaId": 1001
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T13:00:00.000Z",
+      "deleted": true
+    }
+  ],
+  "expected": {
+    "after": [
+      {
+        "kind": "favorite",
+        "key": {
+          "mainMangaId": 1001
+        },
+        "data": null,
+        "clientUpdatedAt": "2026-10-10T12:00:00.000Z",
+        "deleted": false
+      }
+    ],
+    "tombstones": [
+      {
+        "kind": "favorite",
+        "key": {
+          "mainMangaId": 2001
+        },
+        "data": null,
+        "clientUpdatedAt": "2026-10-10T15:00:00.000Z",
+        "deleted": true
+      },
+      {
+        "kind": "rating",
+        "key": {
+          "mainMangaId": 2001
+        },
+        "data": null,
+        "clientUpdatedAt": "2026-10-10T15:00:00.000Z",
+        "deleted": true
+      }
+    ]
+  }
+}

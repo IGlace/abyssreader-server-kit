@@ -1,0 +1,31 @@
+{
+  "name": "cap-library-below-applied",
+  "description": "one below the favorite cap, a new key is applied",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "userCounts": {
+    "favorite": 19999
+  },
+  "stored": null,
+  "incoming": {
+    "opId": "00000000-0000-4000-8000-000000000219",
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 2192
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  },
+  "expected": {
+    "status": "applied",
+    "storedAfter": {
+      "kind": "favorite",
+      "key": {
+        "mainMangaId": 2192
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+      "deleted": false
+    }
+  }
+}

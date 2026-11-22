@@ -1,0 +1,21 @@
+{
+  "name": "mark-missing-read",
+  "description": "chapterMark data requires read and bookmarked",
+  "expect": "schema",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000110",
+    "kind": "chapterMark",
+    "key": {
+      "mainMangaId": 1498,
+      "sourceSlug": "toonily",
+      "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/"
+    },
+    "data": {
+      "chapterNumber": 84,
+      "bookmarked": false
+    },
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  }
+}

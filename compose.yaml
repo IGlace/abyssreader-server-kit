@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright 2026 Abyss Reader
+#
+# The simple setup: one container, everything in one /data volume.
+# This file builds the image from this repo, for trying the kit and for development. Operators
+# get their own compose.yaml from install.sh, which pins an exact released image instead.
+#
+#   cp .env.example .env    # then fill in the server name and operator details
+#   docker compose up -d --build
+#   docker compose exec server abyssreader-server admin users reset-password reader@example.com
+#   docker compose exec server abyssreader-server admin import /import/<folder>
+#
+# The server listens on 127.0.0.1:8080 only. HTTPS (Caddy, or your own proxy) comes with
+# install.sh; the app accepts only https:// server addresses.
+name: abyssreader-server
+services:
+  server:
+    build: .
+    image: abyssreader-server-kit:dev
+    env_file:
+      - path: .env
+        required: true
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - data:/data
+      # Import folders (manifest.json and its cover files) for `admin import /import/<folder>`.
+      - ./import:/import:ro
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  data:

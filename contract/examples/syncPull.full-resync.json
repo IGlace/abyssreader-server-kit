@@ -1,0 +1,24 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "syncPull",
+  "summary": "The cursor can no longer be served; the body is fixed by the sync schema.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/sync/pull",
+    "query": {
+      "cursor": "d.12"
+    },
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en",
+      "Authorization": "Bearer eyJhbGciOiJIUzUxMiJ9.opaque-session-token.example"
+    }
+  },
+  "response": {
+    "status": 409,
+    "body": {
+      "fullResyncRequired": true
+    }
+  }
+}

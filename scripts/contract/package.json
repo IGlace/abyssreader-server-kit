@@ -1,0 +1,10 @@
+{
+  "name": "abyssreader-server-contract-lint",
+  "private": true,
+  "description": "Pinned Redocly CLI for the server contract lint; installed with `npm ci`.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "engines": { "node": ">=20.19.0" },
+  "devDependencies": {
+    "@redocly/cli": "2.70.0"
+  }
+}

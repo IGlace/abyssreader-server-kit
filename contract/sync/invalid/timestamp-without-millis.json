@@ -1,0 +1,16 @@
+{
+  "name": "timestamp-without-millis",
+  "description": "clientUpdatedAt needs exactly 3 fractional digits and Z",
+  "expect": "schema",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000105",
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T14:00:00Z",
+    "deleted": false
+  }
+}

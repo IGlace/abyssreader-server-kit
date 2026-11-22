@@ -1,0 +1,18 @@
+{
+  "name": "deleted-with-data",
+  "description": "a deleted record carries data = null",
+  "expect": "schema",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000109",
+    "kind": "rating",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": {
+      "opinion": "up"
+    },
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": true
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "updateMe",
+  "summary": "Replacing the display name and avatar.",
+  "request": {
+    "method": "PUT",
+    "path": "/api/v1/me",
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en",
+      "Authorization": "Bearer eyJhbGciOiJIUzUxMiJ9.opaque-session-token.example"
+    },
+    "body": {
+      "displayName": "quiet-reader",
+      "avatarUrl": "https://images.example.net/avatars/quiet.png"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": 1001,
+      "displayName": "quiet-reader",
+      "email": "reader@example.com",
+      "avatarUrl": "https://images.example.net/avatars/quiet.png",
+      "hasPassword": true
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "$comment": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0. Copyright 2026 Abyss Reader. An invented hosted title: its name, people and pictures are made up (make-images.go draws the pictures). Import it with `abyssreader-server admin import <this folder>` on a server with ABYSS_FEATURES=hosted-chapters.",
+  "manifestVersion": 1,
+  "titles": [
+    {
+      "ref": "night-ferry",
+      "slug": "the-night-ferry",
+      "name": "The Night Ferry",
+      "description": "A ferry that only runs after midnight, and the lamp-keeper who sells its tickets.",
+      "status": "ongoing",
+      "genres": ["Fantasy", "Slice of Life"],
+      "authors": [{ "name": "Ada Lind", "role": "author" }],
+      "rating": null,
+      "coverFile": "covers/night-ferry.png",
+      "hosted": [
+        {
+          "lang": "en",
+          "readingMode": "long_strip",
+          "rights": {
+            "holder": "Ada Lind",
+            "licence": "CC BY 4.0",
+            "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+            "attribution": "\"The Night Ferry\" by Ada Lind, licensed under CC BY 4.0",
+            "changes": "Episode 2 cut into two slices for the reader."
+          },
+          "chapters": [
+            {
+              "ref": "1",
+              "number": 1,
+              "name": "Last Boat",
+              "publishedAt": "2026-11-01",
+              "pages": ["ch1/01.png", { "file": "ch1/02.png", "width": 800, "height": 1200 }]
+            },
+            {
+              "ref": "2",
+              "number": 2,
+              "name": "The Long Crossing",
+              "publishedAt": "2026-11-08",
+              "pages": [{ "file": "ch2/strip.png", "width": 800, "height": 9000 }]
+            },
+            {
+              "ref": "3",
+              "number": 3,
+              "name": null,
+              "publishedAt": "2026-11-15T18:00:00Z",
+              "credits": "Lettering by Bo Park",
+              "pages": ["ch3/01.jpg"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

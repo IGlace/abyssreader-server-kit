@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abyssreader.com/schemas/sync.schema.json",
+  "title": "AbyssReader sync contract (spec 2026-10-10-sync-contract-design.md §4)",
+  "$defs": {
+    "timestamp": {
+      "description": "ISO-8601 UTC with exactly 3 fractional digits and a literal Z. Not before 1970-01-01T00:00:00.000Z (the epoch, which the server sends for legacy rows): the pattern cannot say it, so the server rejects an earlier push item as invalid.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "opId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "cursor": { "description": "Opaque. Clients store and echo it, never parse it.", "type": "string", "minLength": 1, "maxLength": 200 },
+    "kind": { "enum": ["favorite", "planning", "blacklist", "rating", "position", "chapterMark", "inbox"] },
+    "mainMangaId": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "sourceSlug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "chapterUrl": { "type": "string", "pattern": "^(https?://|/)", "minLength": 2, "maxLength": 2048 },
+    "nullableChapterUrl": { "anyOf": [{ "$ref": "#/$defs/chapterUrl" }, { "type": "null" }] },
+    "nullableSourceSlug": { "anyOf": [{ "$ref": "#/$defs/sourceSlug" }, { "type": "null" }] },
+    "nullableChapterNumber": { "type": ["number", "null"] },
+    "nullableChapterName": { "type": ["string", "null"], "maxLength": 1000 },
+    "nullableCount": { "type": ["integer", "null"], "minimum": 0, "maximum": 100000 },
+
+    "titleKey": {
+      "type": "object",
+      "required": ["mainMangaId"],
+      "properties": { "mainMangaId": { "$ref": "#/$defs/mainMangaId" } },
+      "additionalProperties": false
+    },
+    "chapterMarkKey": {
+      "type": "object",
+      "required": ["mainMangaId", "sourceSlug", "chapterUrl"],
+      "properties": {
+        "mainMangaId": { "$ref": "#/$defs/mainMangaId" },
+        "sourceSlug": { "$ref": "#/$defs/sourceSlug" },
+        "chapterUrl": { "$ref": "#/$defs/chapterUrl" }
+      },
+      "additionalProperties": false
+    },
+    "ratingData": {
+      "type": "object",
+      "required": ["opinion"],
+      "properties": { "opinion": { "enum": ["up", "down"] } },
+      "additionalProperties": false
+    },
+    "positionData": {
+      "type": "object",
+      "properties": {
+        "sourceSlug": { "$ref": "#/$defs/nullableSourceSlug" },
+        "chapterUrl": { "$ref": "#/$defs/nullableChapterUrl" },
+        "chapterNumber": { "$ref": "#/$defs/nullableChapterNumber" },
+        "chapterName": { "$ref": "#/$defs/nullableChapterName" },
+        "pageIndex": { "$ref": "#/$defs/nullableCount" }
+      },
+      "additionalProperties": false
+    },
+    "chapterMarkData": {
+      "type": "object",
+      "required": ["read", "bookmarked"],
+      "properties": {
+        "chapterNumber": { "$ref": "#/$defs/nullableChapterNumber" },
+        "chapterName": { "$ref": "#/$defs/nullableChapterName" },
+        "read": { "type": "boolean" },
+        "lastPageRead": { "$ref": "#/$defs/nullableCount" },
+        "totalPages": { "$ref": "#/$defs/nullableCount" },
+        "bookmarked": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "inboxData": {
+      "type": "object",
+      "required": ["detectedAt", "seen"],
+      "properties": {
+        "sourceSlug": { "$ref": "#/$defs/nullableSourceSlug" },
+        "latestChapterNumber": { "$ref": "#/$defs/nullableChapterNumber" },
+        "latestChapterName": { "$ref": "#/$defs/nullableChapterName" },
+        "latestChapterUrl": { "$ref": "#/$defs/nullableChapterUrl" },
+        "detectedAt": { "$ref": "#/$defs/timestamp" },
+        "seen": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
+    "record": {
+      "description": "Shared by a push item and a pull change. A deleted record carries data = null.",
+      "type": "object",
+      "required": ["kind", "key", "data", "clientUpdatedAt", "deleted"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/kind" },
+        "key": { "type": "object" },
+        "clientUpdatedAt": { "$ref": "#/$defs/timestamp" },
+        "deleted": { "type": "boolean" }
+      },
+      "allOf": [
+        { "if": { "properties": { "deleted": { "const": true } } },
+          "then": { "properties": { "data": { "type": "null" } } } },
+        { "if": { "properties": { "kind": { "enum": ["favorite", "planning", "blacklist"] } } },
+          "then": { "properties": { "key": { "$ref": "#/$defs/titleKey" }, "data": { "type": "null" } } } },
+        { "if": { "properties": { "kind": { "const": "rating" } } },
+          "then": { "properties": { "key": { "$ref": "#/$defs/titleKey" },
+                                    "data": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/ratingData" }] } } } },
+        { "if": { "properties": { "kind": { "const": "position" } } },
+          "then": { "properties": { "key": { "$ref": "#/$defs/titleKey" },
+                                    "data": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/positionData" }] } } } },
+        { "if": { "properties": { "kind": { "const": "chapterMark" } } },
+          "then": { "properties": { "key": { "$ref": "#/$defs/chapterMarkKey" },
+                                    "data": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/chapterMarkData" }] } } } },
+        { "if": { "properties": { "kind": { "const": "inbox" } } },
+          "then": { "properties": { "key": { "$ref": "#/$defs/titleKey" },
+                                    "data": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/inboxData" }] } } } },
+        { "if": { "properties": { "kind": { "enum": ["rating", "position", "chapterMark", "inbox"] }, "deleted": { "const": false } } },
+          "then": { "properties": { "data": { "type": "object" } } } }
+      ]
+    },
+    "pushItem": {
+      "allOf": [{ "$ref": "#/$defs/record" }],
+      "required": ["opId"],
+      "properties": { "opId": { "$ref": "#/$defs/opId" }, "data": true, "kind": true, "key": true, "clientUpdatedAt": true, "deleted": true },
+      "unevaluatedProperties": false
+    },
+    "change": {
+      "allOf": [{ "$ref": "#/$defs/record" }],
+      "properties": { "data": true, "kind": true, "key": true, "clientUpdatedAt": true, "deleted": true },
+      "unevaluatedProperties": false
+    },
+
+    "pushEnvelope": {
+      "description": "What the server checks for a 400. Each item is then validated alone against pushItem (rejected: invalid), so one bad item never fails the batch.",
+      "type": "object",
+      "required": ["items"],
+      "properties": { "items": { "type": "array", "minItems": 1, "maxItems": 500, "items": { "type": "object" } } },
+      "additionalProperties": false
+    },
+    "pushRequest": {
+      "type": "object",
+      "required": ["items"],
+      "properties": { "items": { "type": "array", "minItems": 1, "maxItems": 500, "items": { "$ref": "#/$defs/pushItem" } } },
+      "additionalProperties": false
+    },
+    "pushResult": {
+      "type": "object",
+      "required": ["opId", "status"],
+      "properties": {
+        "opId": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "status": { "enum": ["applied", "stale", "rejected"] },
+        "reason": { "enum": ["unknown_title", "unknown_source", "cap", "invalid"] }
+      },
+      "additionalProperties": false,
+      "if": { "properties": { "status": { "const": "rejected" } } },
+      "then": { "required": ["reason"] },
+      "else": { "not": { "required": ["reason"] } }
+    },
+    "pushResponse": {
+      "type": "object",
+      "required": ["results", "cursor"],
+      "properties": {
+        "results": { "type": "array", "items": { "$ref": "#/$defs/pushResult" } },
+        "cursor": { "$ref": "#/$defs/cursor" }
+      },
+      "additionalProperties": false
+    },
+    "pullResponse": {
+      "type": "object",
+      "required": ["changes", "cursor", "hasMore"],
+      "properties": {
+        "changes": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/change" } },
+        "cursor": { "$ref": "#/$defs/cursor" },
+        "hasMore": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "pullConflict": {
+      "type": "object",
+      "required": ["fullResyncRequired"],
+      "properties": { "fullResyncRequired": { "const": true } },
+      "additionalProperties": false
+    },
+
+    "invalidCase": {
+      "description": "Fixture wrapper: an item the server must reject. expect=schema → pushItem validation fails (reason invalid); expect=semantic → it passes pushItem and the server rejects it with `reason` (`invalid` for a well-formed value the server refuses, e.g. a timestamp before the epoch).",
+      "type": "object",
+      "required": ["name", "description", "expect", "reason", "item"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "expect": { "enum": ["schema", "semantic"] },
+        "reason": { "enum": ["unknown_title", "unknown_source", "invalid"] },
+        "item": { "type": "object" }
+      },
+      "additionalProperties": false,
+      "if": { "properties": { "expect": { "const": "schema" } } },
+      "then": { "properties": { "reason": { "const": "invalid" } } },
+      "else": { "properties": { "reason": { "enum": ["unknown_title", "unknown_source", "invalid"] } } }
+    },
+    "ruleCase": {
+      "description": "Fixture wrapper for spec §5. stored/storedAfter are the record for incoming.key as a pull change (deleted=true = tombstone) or null.",
+      "type": "object",
+      "required": ["name", "description", "serverNow", "stored", "incoming", "expected"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "serverNow": { "$ref": "#/$defs/timestamp" },
+        "userCounts": { "type": "object", "propertyNames": { "$ref": "#/$defs/kind" }, "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "stored": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/change" }] },
+        "incoming": { "$ref": "#/$defs/pushItem" },
+        "expected": {
+          "type": "object",
+          "required": ["status", "storedAfter"],
+          "properties": {
+            "status": { "enum": ["applied", "stale", "rejected"] },
+            "reason": { "enum": ["cap"] },
+            "storedAfter": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/change" }] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "mergeCase": {
+      "description": "Fixture wrapper for spec §6.3. before/after = the user's full synced state for loser and winner (after: rows only; before: rows, and a deleted entry is an existing tombstone); tombstones = the tombstones the merge writes.",
+      "type": "object",
+      "required": ["name", "description", "serverNow", "loserId", "winnerId", "before", "expected"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "serverNow": { "$ref": "#/$defs/timestamp" },
+        "loserId": { "$ref": "#/$defs/mainMangaId" },
+        "winnerId": { "$ref": "#/$defs/mainMangaId" },
+        "before": { "type": "array", "items": { "$ref": "#/$defs/change" } },
+        "expected": {
+          "type": "object",
+          "required": ["after", "tombstones"],
+          "properties": {
+            "after": { "type": "array", "items": { "$ref": "#/$defs/change" } },
+            "tombstones": { "type": "array", "items": { "$ref": "#/$defs/change" } }
+          },
+          "additionalProperties": false
+        },
+        "thenPush": {
+          "description": "§6.3a, optional: a push made after the merge and keyed by the loser; expected.storedAfter is the winner's record.",
+          "type": "object",
+          "required": ["incoming", "expected"],
+          "properties": {
+            "incoming": { "$ref": "#/$defs/pushItem" },
+            "expected": {
+              "type": "object",
+              "required": ["status", "storedAfter"],
+              "properties": {
+                "status": { "enum": ["applied", "stale", "rejected"] },
+                "reason": { "enum": ["unknown_title", "unknown_source", "cap", "invalid"] },
+                "storedAfter": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/change" }] }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

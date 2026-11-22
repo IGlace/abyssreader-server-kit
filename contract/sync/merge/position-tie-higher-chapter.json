@@ -1,0 +1,69 @@
+{
+  "name": "position-tie-higher-chapter",
+  "description": "positions with equal clientUpdatedAt: the higher chapterNumber wins (§5 tie rule)",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "loserId": 2001,
+  "winnerId": 1001,
+  "before": [
+    {
+      "kind": "position",
+      "key": {
+        "mainMangaId": 2001
+      },
+      "data": {
+        "sourceSlug": "toonily",
+        "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-85/",
+        "chapterNumber": 85,
+        "chapterName": "Chapter 85",
+        "pageIndex": 0
+      },
+      "clientUpdatedAt": "2026-10-10T10:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "kind": "position",
+      "key": {
+        "mainMangaId": 1001
+      },
+      "data": {
+        "sourceSlug": "toonily",
+        "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/",
+        "chapterNumber": 84,
+        "chapterName": "Chapter 84",
+        "pageIndex": 20
+      },
+      "clientUpdatedAt": "2026-10-10T10:00:00.000Z",
+      "deleted": false
+    }
+  ],
+  "expected": {
+    "after": [
+      {
+        "kind": "position",
+        "key": {
+          "mainMangaId": 1001
+        },
+        "data": {
+          "sourceSlug": "toonily",
+          "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-85/",
+          "chapterNumber": 85,
+          "chapterName": "Chapter 85",
+          "pageIndex": 0
+        },
+        "clientUpdatedAt": "2026-10-10T10:00:00.000Z",
+        "deleted": false
+      }
+    ],
+    "tombstones": [
+      {
+        "kind": "position",
+        "key": {
+          "mainMangaId": 2001
+        },
+        "data": null,
+        "clientUpdatedAt": "2026-10-10T15:00:00.000Z",
+        "deleted": true
+      }
+    ]
+  }
+}

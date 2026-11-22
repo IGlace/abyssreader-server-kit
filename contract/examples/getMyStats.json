@@ -1,0 +1,59 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "getMyStats",
+  "summary": "The caller's statistics.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/me/stats",
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en",
+      "Authorization": "Bearer eyJhbGciOiJIUzUxMiJ9.opaque-session-token.example"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "titlesRead": 37,
+      "lastReadAt": "2026-11-18T13:58:00.000Z",
+      "currentStreakDays": 4,
+      "longestStreakDays": 21,
+      "favoriteCount": 12,
+      "planningCount": 5,
+      "blacklistCount": 1,
+      "titleVotesGiven": 18,
+      "titleUpvotesGiven": 16,
+      "titleDownvotesGiven": 2,
+      "commentsPosted": 9,
+      "commentUpvotesGiven": 30,
+      "commentDownvotesGiven": 1,
+      "commentUpvotesReceived": 44,
+      "commentDownvotesReceived": 3,
+      "collectionsCreated": 1,
+      "collectionTitles": 2,
+      "collectionCommentsPosted": 2,
+      "collectionCommentUpvotesGiven": 4,
+      "collectionCommentDownvotesGiven": 0,
+      "collectionCommentUpvotesReceived": 1,
+      "collectionCommentDownvotesReceived": 0,
+      "collectionVotesGiven": 3,
+      "collectionVotesReceived": 0,
+      "reportsSubmitted": 1,
+      "genresInteracted": 6,
+      "lastAggregatedAt": "2026-11-18T04:00:00.000Z",
+      "topGenres": [
+        {
+          "id": 3,
+          "name": "Fantasy",
+          "count": 22
+        },
+        {
+          "id": 7,
+          "name": "Adventure",
+          "count": 9
+        }
+      ]
+    }
+  }
+}

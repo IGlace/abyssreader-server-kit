@@ -1,0 +1,7 @@
+# Top-level pins for validate_server_contract.py. The CI installs the
+# hash-locked requirements.txt compiled from this file for Python 3.11:
+#   uv pip compile --python-version 3.11 --generate-hashes --exclude-newer 2026-11-04 requirements.in -o requirements.txt
+openapi-spec-validator==0.7.2
+jsonschema==4.26.0
+referencing==0.36.2
+PyYAML==6.0.3

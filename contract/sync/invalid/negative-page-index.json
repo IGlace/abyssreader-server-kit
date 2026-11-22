@@ -1,0 +1,22 @@
+{
+  "name": "negative-page-index",
+  "description": "pageIndex must be >= 0",
+  "expect": "schema",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000104",
+    "kind": "position",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": {
+      "sourceSlug": "toonily",
+      "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/",
+      "chapterNumber": 84,
+      "chapterName": "Chapter 84",
+      "pageIndex": -1
+    },
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  }
+}

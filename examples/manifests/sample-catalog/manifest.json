@@ -1,0 +1,96 @@
+{
+  "$comment": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0. Copyright 2026 Abyss Reader. An invented sample catalog: the sources, titles, people and addresses are made up. Import it with `abyssreader-server admin import <this folder>`.",
+  "manifestVersion": 1,
+  "sources": [
+    {
+      "slug": "paper-moon",
+      "name": "Paper Moon Comics",
+      "website": "https://papermoon.example.com",
+      "lang": "en",
+      "iconUrl": null,
+      "tachiyomiIds": ["4815162342"]
+    },
+    {
+      "slug": "luna-es",
+      "name": "Luna Cómics",
+      "website": "https://luna.example.net",
+      "lang": "es"
+    }
+  ],
+  "titles": [
+    {
+      "ref": "lantern-keeper",
+      "slug": "the-lantern-keeper",
+      "name": "The Lantern Keeper",
+      "altNames": ["Lantern Keeper", "El guardián del farol"],
+      "description": "A lighthouse keeper's apprentice finds the lamp answers back.",
+      "status": "ongoing",
+      "genres": ["Fantasy", "Adventure"],
+      "authors": [
+        { "name": "Mira Okafor", "role": "author" },
+        { "name": "Jun Sato", "role": "artist" }
+      ],
+      "rating": 8.4,
+      "coverFile": "covers/lantern-keeper.png",
+      "sourceTitles": [
+        { "source": "paper-moon", "url": "/series/the-lantern-keeper/" },
+        { "source": "luna-es", "url": "/manga/el-guardian-del-farol" }
+      ]
+    },
+    {
+      "ref": "tidewater",
+      "name": "Tidewater",
+      "description": "Two rival ferry captains share one storm-bound harbour.",
+      "status": "completed",
+      "genres": ["Drama", "Slice of Life"],
+      "authors": [{ "name": "Ines Varga" }],
+      "rating": 7.1,
+      "coverFile": "covers/tidewater.png",
+      "sourceTitles": [{ "source": "paper-moon", "url": "/series/tidewater/" }]
+    },
+    {
+      "ref": "quiet-orbit",
+      "name": "Quiet Orbit",
+      "altNames": ["Órbita tranquila"],
+      "description": "The last technician on a weather satellite talks to the night side of the planet.",
+      "status": "on_hiatus",
+      "genres": ["Science Fiction", "Drama"],
+      "authors": [{ "name": "Tomasz Weller", "role": "unknown" }],
+      "rating": null,
+      "coverFile": "covers/quiet-orbit.png",
+      "sourceTitles": [{ "source": "luna-es", "url": "/manga/orbita-tranquila", "lang": "es" }]
+    },
+    {
+      "ref": "paper-cranes",
+      "name": "A Thousand Paper Cranes Later",
+      "description": "A florist folds one crane a day and keeps a diary on the wings.",
+      "status": "ongoing",
+      "genres": ["Romance", "Slice of Life"],
+      "authors": [{ "name": "Hana Ilves" }],
+      "rating": 9.0,
+      "coverFile": "covers/paper-cranes.png",
+      "sourceTitles": [{ "source": "paper-moon", "url": "/series/paper-cranes/" }]
+    },
+    {
+      "ref": "clockwork-garden",
+      "name": "The Clockwork Garden",
+      "description": "Gears grow where seeds were planted, and the gardener has to wind the spring.",
+      "status": "unknown",
+      "genres": ["Fantasy", "Mystery"],
+      "authors": [{ "name": "Mira Okafor" }],
+      "rating": 6.5,
+      "coverFile": "covers/clockwork-garden.png",
+      "sourceTitles": [
+        { "source": "luna-es", "url": "/manga/el-jardin-de-relojeria" },
+        { "source": "paper-moon", "url": "/series/clockwork-garden/" }
+      ]
+    },
+    {
+      "ref": "unfinished-map",
+      "name": "The Unfinished Map",
+      "description": null,
+      "genres": ["Adventure"],
+      "sourceTitles": [{ "source": "paper-moon", "url": "/series/unfinished-map/" }]
+    }
+  ]
+}

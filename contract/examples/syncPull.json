@@ -1,0 +1,97 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "syncPull",
+  "summary": "A delta page after a cursor.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/sync/pull",
+    "query": {
+      "cursor": "d.18330",
+      "limit": 500
+    },
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en",
+      "Authorization": "Bearer eyJhbGciOiJIUzUxMiJ9.opaque-session-token.example"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "changes": [
+        {
+          "kind": "favorite",
+          "key": {
+            "mainMangaId": 42
+          },
+          "data": null,
+          "clientUpdatedAt": "2026-11-18T14:00:00.000Z",
+          "deleted": false
+        },
+        {
+          "kind": "rating",
+          "key": {
+            "mainMangaId": 42
+          },
+          "data": {
+            "opinion": "up"
+          },
+          "clientUpdatedAt": "2026-11-18T14:00:01.000Z",
+          "deleted": false
+        },
+        {
+          "kind": "position",
+          "key": {
+            "mainMangaId": 42
+          },
+          "data": {
+            "sourceSlug": "lantern",
+            "chapterUrl": "/chapters/7003",
+            "chapterNumber": 3,
+            "chapterName": "The lamp answers",
+            "pageIndex": 4
+          },
+          "clientUpdatedAt": "2026-11-18T14:00:02.000Z",
+          "deleted": false
+        },
+        {
+          "kind": "chapterMark",
+          "key": {
+            "mainMangaId": 42,
+            "sourceSlug": "lantern",
+            "chapterUrl": "/chapters/7002"
+          },
+          "data": {
+            "chapterNumber": 2,
+            "chapterName": "Salt on the glass",
+            "read": true,
+            "lastPageRead": 17,
+            "totalPages": 17,
+            "bookmarked": false
+          },
+          "clientUpdatedAt": "2026-11-18T14:00:03.000Z",
+          "deleted": false
+        },
+        {
+          "kind": "inbox",
+          "key": {
+            "mainMangaId": 42
+          },
+          "data": {
+            "sourceSlug": "lantern",
+            "latestChapterNumber": 4,
+            "latestChapterName": "Night shift",
+            "latestChapterUrl": "/chapters/7004",
+            "detectedAt": "2026-11-18T13:55:00.000Z",
+            "seen": false
+          },
+          "clientUpdatedAt": "2026-11-18T13:55:00.000Z",
+          "deleted": false
+        }
+      ],
+      "cursor": "d.18347",
+      "hasMore": false
+    }
+  }
+}

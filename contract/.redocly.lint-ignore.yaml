@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright 2026 Abyss Reader
+# Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)
+# Required Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.
+#
+# Accepted Redocly lint findings, each with its reason. Anything new fails the lint.
+openapi.yaml:
+  # `/titles/by-slug/{slug}` and `/collections/by-slug/{slug}` sit beside `/titles/{id}/…` and
+  # `/collections/{id}/…`. Not ambiguous in practice: `{id}` is an integer, and `by-slug` never is.
+  no-ambiguous-paths:
+    - '#/paths/~1api~1v1~1titles~1{id}~1comments'
+    - '#/paths/~1api~1v1~1collections~1{id}~1titles'
+    - '#/paths/~1api~1v1~1collections~1{id}~1vote'
+    - '#/paths/~1api~1v1~1collections~1{id}~1reports'
+    - '#/paths/~1api~1v1~1collections~1{id}~1import'
+    - '#/paths/~1api~1v1~1collections~1{id}~1comments'
+    - '#/paths/~1api~1v1~1titles~1{id}~1reports'
+sync/sync.schema.json:
+  # The sync schema is referenced unchanged. Its `if/then/else` on `reason` is valid
+  # JSON Schema: `reason` is declared in the same object's `properties`, which the rule misses.
+  no-required-schema-properties-undefined:
+    - '#/$defs/pushResult/then/required/0'
+    - '#/$defs/pushResult/else/not/required/0'

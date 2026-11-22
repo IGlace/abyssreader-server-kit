@@ -1,0 +1,3325 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright 2026 Abyss Reader
+# Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)
+# Required Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.
+# Licence text: https://polyformproject.org/licenses/noncommercial/1.0.0
+#
+# This kit's contract/ is the source of truth for the AbyssReader server contract.
+# Tags contract-vX.Y version routes and fields. A docs label such as contract-v1.0-docs1
+# identifies a notice or README update to the same contract version.
+# The official server’s tests and the app’s tests use a copy pinned to a kit tag.
+# Examples: ./examples/<operationId>.json. Sync schema: ./sync/sync.schema.json.
+# The kit checks server responses against this document in .github/workflows/ci.yml.
+openapi: 3.1.0
+jsonSchemaDialect: https://spec.openapis.org/oas/3.1/dialect/base
+info:
+  title: AbyssReader server contract
+  version: "1.0"
+  summary: Every endpoint an AbyssReader server must or may offer, contract version 1.0.
+  license:
+    name: PolyForm Noncommercial 1.0.0
+    identifier: PolyForm-Noncommercial-1.0.0
+  description: |
+    The **server contract** describes every endpoint a server must offer (core features) or may
+    offer (optional features). Servers are built against it, and the app's conformance check
+    tests servers against it. Vocabulary: the AbyssReader glossary (server, server operator,
+    title, source title, source, hosted source, definition, signing key, vote, rating, report,
+    backup, core feature, optional feature, contract version, breaking change, access key).
+
+    ## Address, base path and requests
+
+    - A server's address is an HTTPS origin, `https://host[:port]`, with no path. Plain `http://`
+      is never accepted.
+    - `GET /api/status` is the one path that never changes. It announces, per contract major
+      version, a `basePath`; every v1 route lives under it. For contract major 1 the base path is
+      `/api/v1`, and this file writes the v1 routes with that prefix.
+    - Request bodies are UTF-8 JSON (`Content-Type: application/json`). The one exception is the
+      backup upload: `multipart/form-data` with the file in a field named `file`.
+    - The app sends `User-Agent: AbyssReader/<version> (<android|ios>)` on every request to a
+      server. A server may log it but **must not change its behaviour on it**: compatibility is
+      expressed only through contract versions. The contract has no minimum app version.
+    - The app sends `Accept-Language`; a server may use it for `message` texts.
+    - **Unknown fields:** the app ignores response fields it does not know; a server ignores
+      request fields it does not know.
+    - **Server extras:** a server may add its own routes, but never extra fields in v1 bodies.
+      A route of a server's own may sit under the base path when it belongs there (the kit's Google
+      sign-in callback is `/api/v1/auth/google/callback`); it is not part of the contract, the app
+      never calls it, and a later contract version may claim any path not already used by the
+      server. Prefer paths outside the base path for anything else. Extras of the official server
+      live outside this file.
+
+    ## Contract versions
+
+    The contract version is `MAJOR.MINOR` (no patch number).
+
+    - **Breaking change (new major):** removing or renaming an endpoint, a field or a value;
+      changing a type; making a response field nullable or optional when it was not; making a
+      request field required or adding a required one; changing what a status code means; moving a
+      feature between core and optional.
+    - **Addition (new minor):** a new endpoint, an optional request field, a response field, a new
+      optional feature, a value in an enum marked open.
+    - A later major version lives under its own base path (`/api/v2/…`), announced as another
+      `contracts` entry in `/api/status`.
+
+    ## Access key
+
+    A server operator may require an access key (`accessKeyRequired: true` in `/api/status`).
+    Then every route except `/api/status` and the Google sign-in start (opened in a browser tab)
+    needs the header `X-Access-Key: <key>`. A missing key gets `403 access_key_required`, a wrong
+    one `403 access_key_invalid`; neither ever means "signed out". The app sends the header only
+    when the user typed a key, only to that server, and never empty. A server that does not
+    require a key ignores the header. Image URLs are never protected by the key.
+
+    ## Session
+
+    - `Authorization: Bearer <token>`. The token is opaque: the app never decodes it and takes the
+      user id from the sign-in response and `GET /api/v1/me`. Each server chooses the token's
+      lifetime. There is no refresh token.
+    - **401 `session_invalid`** means only "the session token is not accepted": it is missing (on a
+      route that needs a session), expired, revoked, or its account was disabled, suspended or
+      deleted. A token that is not valid gets 401 on **every** v1 route, public ones included; the
+      server never quietly serves it anonymously. 401 is the only status that signs the app out.
+    - **403** means "not allowed to do this" and never signs out.
+    - A wrong password is never 401 or 403: sign-in, password change and account deletion answer
+      `400 wrong_password`.
+    - A password change revokes the user's other sessions and returns a new token.
+    - Request bodies never carry the caller's id; the server takes it from the token.
+
+    ## Errors
+
+    Every non-2xx response carries the `Error` body `{code, message, fields?}` (the one exception
+    is the sync pull's `409`, whose body the sync schema fixes). `code` is a snake_case word from
+    an **open** enum: the app handles an unknown code by its HTTP status. `message` is human text
+    the app shows only when it has no translation of its own for `code`. `fields` lists
+    validation errors as `[{field, code}]`.
+
+    Each response in this file lists the **contract's own** codes for it in `x-error-codes`. A
+    server answers those situations with those codes. It may also send other snake_case codes of
+    its own with the same status and the same meaning of that status (a server-specific "not
+    allowed" is still a `403` that never signs out); the app handles them by their status. A
+    contract code is never used with another status than the one listed here.
+
+    | Status | The contract's codes |
+    |---|---|
+    | 400 | `validation_failed`, `wrong_password`, `password_not_set`, `email_unverified`, `google_code_invalid`, `backup_invalid` |
+    | 401 | `session_invalid` |
+    | 403 | `access_key_required`, `access_key_invalid`, `account_disabled`, `account_suspended`, `forbidden`, `sign_up_closed` |
+    | 404 | `not_found`, `feature_disabled` |
+    | 409 | `already_exists`, `email_taken` |
+    | 413 | `too_large` |
+    | 429 | `rate_limited` (with `Retry-After` in seconds) |
+    | 500 | `server_error` |
+    | 503 | `unavailable` |
+
+    Any route may answer `429`, `500` or `503`. On `429` the app shows the server's `message`
+    only when it has no translation for `code`, and retries that server only after `Retry-After`
+    has passed. Each server sets its own rate limits.
+
+    ## Methods and success
+
+    GET reads, POST creates or acts, PUT replaces (for example a vote), DELETE removes; there is no
+    PATCH. Creating answers `201` with the resource, an update answers `200` with the resource, and
+    an action with nothing to return (delete, report, import) answers `204`. "Already done" is a
+    `409`. There are no bare `true`/`false` bodies and no text bodies. The app treats any 2xx as
+    success.
+
+    ## Lists
+
+    - Every list that can grow is paginated: query `page` (1-based, default 1) and `size` (each
+      route states its default and maximum, never above 100; asking for more is a `400`). The
+      response is `{items, page, size, totalItems, hasMore}`, all required; the app trusts
+      `hasMore` and never works it out from the page length.
+    - Small fixed lists come back whole as `{items}`: genres, sources, definition keys, the
+      definitions manifest, a chapter's pages.
+    - Sorting: `sort` names the field, `order` is `asc` or `desc`. Each route publishes its own
+      closed list of `sort` values and their defaults.
+    - A filter list repeats the parameter (`?status=ongoing&status=completed&genre=3`), never
+      comma-separated. Filters take ids (sources take their slug), booleans are `true`/`false`,
+      free-text search is `q`. An unknown filter value is a `400 validation_failed`, never an
+      empty page.
+    - Sync keeps its own cursor (`GET /api/v1/sync/pull`).
+
+    ## Ids, timestamps, nullability
+
+    - Every id is an integer from 1 to 2³¹−1, local to its server and never reused for another
+      thing of the same kind on that server. Titles, collections and sources also have a slug; the
+      id is the key everywhere else.
+    - Timestamps are ISO-8601 UTC with exactly three decimals and `Z`
+      (`2026-11-16T10:00:00.000Z`). A date without a time is `YYYY-MM-DD`.
+    - Every response field is listed in `required` and is always sent; a field that may have no
+      value is nullable and sent as `null`. (The one exception, `Error.fields`, is marked
+      `x-may-be-absent`.) The app treats a missing nullable field as `null`. A non-null field that
+      is missing or `null` fails the conformance check for that feature.
+    - Lists are never `null` (empty is `[]`), and an empty string never stands for "no value".
+
+    ## Enums
+
+    Every enum is marked `x-enum: open` or `x-enum: closed`. A closed enum lists every value with
+    `enum`. An open enum lists today's values in `x-values` and may gain values in a minor version:
+    in a response the app tolerates a value it does not know; in a request the app sends only
+    values of the server's announced minor version, and a server answers a value it does not know
+    with `400 validation_failed` (except where a route says it accepts any value).
+
+    ## Images
+
+    Every image field (covers, avatars, source icons, comment images, chapter pages) is an absolute
+    `https://` URL that the server builds or accepts. Images load with **no headers** (no bearer,
+    no access key). A changed image gets a new URL, so the app may cache a URL forever.
+
+    ## Features
+
+    `x-feature` on each operation names its feature: `core`, or the optional feature's name as it
+    appears in `/api/status` `features`. An optional feature that is switched off answers
+    `404 feature_disabled` on every one of its routes, and the app hides its screens.
+
+    | Feature | Class | Routes |
+    |---|---|---|
+    | Server status | core | `GET /api/status` |
+    | Sign-up, sign-in and account | core | `/auth/sign-up`, `/auth/sign-in`, `/me`, `/me/password`, `/me/deletion` |
+    | Catalog, search and title details | core | `/titles…`, `/genres` |
+    | Covers | core | image URLs in titles (no route) |
+    | Library | core | `GET /me/library` |
+    | Sync | core | `/sync/push`, `/sync/pull` |
+    | Sources and definitions | core | `/sources`, `/definitions/…` |
+    | `comments` | optional | title comments and replies (post, edit, delete), their votes and reports |
+    | `collections` | optional | collections, their titles, votes, reports, import, comments |
+    | `stats` | optional | your stats and rankings |
+    | `reports` | optional | title reports |
+    | `backup` | optional | backup export and restore |
+    | `google-sign-in` | optional | Google sign-in through the browser |
+    | `hosted-chapters` | optional | chapters and pages of the hosted source |
+
+    **What a catalog must hold.** A server's catalog has at least one title with a cover and a
+    source title (otherwise the app refuses it as "empty catalog"), and at least one **readable**
+    title: one with a hosted source title, or with a source title whose source has a definition in
+    the manifest that verifies against the server's keys (otherwise "nothing to read"). A server
+    with no definitions is valid when it hosts chapters.
+
+    ## Limits each server sets
+
+    A server may limit lengths, list sizes, allowed image hosts, how many titles a collection
+    needs, upload sizes and request rates. A request that breaks a limit gets
+    `400 validation_failed` with `fields` (or `413 too_large` for an upload). The contract says
+    only "a server may limit X" unless a route sets a floor every server must accept.
+
+    ## Outside the contract
+
+    Publishing, promoting and canarying definitions; how a server fills its catalog; the Google
+    sign-in callback path on the server; moderation tools; the official server's own extras.
+servers:
+  - url: https://{host}
+    description: A server's HTTPS origin.
+    variables:
+      host:
+        default: server.example.org
+        description: The server's host, optionally with `:port`. No path.
+tags:
+  - name: Server status
+    description: "Core. `GET /api/status`, the one fixed path."
+  - name: Account
+    description: "Core. Sign-up, sign-in, profile, password change and account deletion."
+  - name: Catalog
+    description: "Core. Search, title details, genres. Covers are image URLs inside titles."
+  - name: Library
+    description: "Core. The caller's library lists, written through sync."
+  - name: Sync
+    description: "Core. The sync contract (`sync/sync.schema.json`), unchanged in v1."
+  - name: Sources and definitions
+    description: "Core. Sources, definition signing keys, manifest, definitions, health reports."
+  - name: Comments
+    description: "Optional feature `comments`."
+  - name: Collections
+    description: "Optional feature `collections`."
+  - name: Stats
+    description: "Optional feature `stats` (stats and rankings)."
+  - name: Reports
+    description: "Optional feature `reports` (title reports only)."
+  - name: Backup
+    description: "Optional feature `backup`."
+  - name: Google sign-in
+    description: "Optional feature `google-sign-in`."
+  - name: Hosted chapters
+    description: "Optional feature `hosted-chapters`."
+
+paths:
+  # ───────────────────────────── Server status (fixed path) ─────────────────────────────
+  /api/status:
+    get:
+      operationId: getStatus
+      tags: [Server status]
+      summary: What the server is and which contract versions and features it offers
+      description: |
+        Always public, at this fixed path on every server, whatever its contract versions. The
+        app reads it before adding a server and on every refresh, and compares the versions each
+        time. The server ignores `Authorization` and `X-Access-Key` here.
+
+        **Compatibility:** the app lists the major versions it supports and the lowest minor it
+        needs in each, and uses the highest major both sides offer. A server minor that is too low
+        means "server needs an update"; a server that offers only newer majors means "update the
+        app"; a newer minor on the server is fine.
+      x-feature: core
+      x-auth: none
+      security: []
+      responses:
+        "200":
+          description: The server's status.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerStatus" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Account (core) ─────────────────────────────
+  /api/v1/auth/sign-up:
+    post:
+      operationId: signUp
+      tags: [Account]
+      summary: Create an account and get a session
+      description: |
+        Creates an account and answers with a **working session at once**. There is no email
+        verification step; an operator who wants gatekeeping closes sign-up (`signUpOpen: false`)
+        or requires an access key.
+
+        A server accepts **any syntactically valid email address** and never checks that it can
+        receive mail. The route always exists; when sign-up is closed it answers
+        `403 sign_up_closed`.
+
+        **Minimum every server accepts** (owner decision 2026-11-19): a display name of 3–32 ASCII
+        letters and digits, and a password of 8–64 printable ASCII characters. A server may not
+        refuse values inside this minimum. It may accept wider limits, and it answers values
+        outside its own limits with `400 validation_failed`. The minimum lets the conformance
+        check's random check account sign up on every server.
+      x-feature: core
+      x-auth: none
+      security:
+        - {}
+        - accessKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SignUpRequest" }
+      responses:
+        "201":
+          description: The account was created; the session works immediately.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403":
+          description: Access key problem, or sign-up is closed.
+          x-error-codes: [access_key_required, access_key_invalid, sign_up_closed]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: An account with this email already exists.
+          x-error-codes: [email_taken]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/auth/sign-in:
+    post:
+      operationId: signIn
+      tags: [Account]
+      summary: Sign in with email and password
+      description: |
+        An unknown email and a wrong password both answer `400 wrong_password`.
+
+        - `403 account_suspended`: the server operator suspended the account for breaking the
+          server's rules (moderation, for example after reports). The operator may lift it.
+        - `403 account_disabled`: the account is switched off for any other reason: it was
+          deactivated, is waiting for deletion, or cannot sign in for an administrative reason.
+
+        The app uses its own translated text for both codes. The `message` field follows the
+        general fallback rule. Either way the account's existing sessions get `401 session_invalid`.
+        An account without a password (made with Google sign-in) gets `400 wrong_password`.
+      x-feature: core
+      x-auth: none
+      security:
+        - {}
+        - accessKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SignInRequest" }
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400":
+          description: Validation failed, or the email or password is wrong.
+          x-error-codes: [validation_failed, wrong_password]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403":
+          description: Access key problem, or the account may not sign in.
+          x-error-codes: [access_key_required, access_key_invalid, account_disabled, account_suspended]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/me:
+    get:
+      operationId: getMe
+      tags: [Account]
+      summary: The signed-in account
+      x-feature: core
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      responses:
+        "200":
+          description: The caller's account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    put:
+      operationId: updateMe
+      tags: [Account]
+      summary: Replace the caller's profile
+      description: |
+        Replaces the display name and avatar. The email cannot be changed in v1, and the password
+        changes through `PUT /api/v1/me/password`. A server may limit avatar hosts and the display
+        name with `400 validation_failed`.
+      x-feature: core
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProfileRequest" }
+      responses:
+        "200":
+          description: The updated account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/me/deletion:
+    post:
+      operationId: deleteAccount
+      tags: [Account]
+      summary: Delete the caller's account and everything it created
+      description: |
+        **Deleting an account deletes everything it created:** its library, sync records, votes,
+        comments and replies, collections (with their comments), reports and anything it
+        restored from a backup. Replies other accounts wrote under its comments may stay, without
+        the link to it. After a `204` the old token gets `401` everywhere and signing in fails.
+        View counters may keep their increments.
+
+        An account with a password confirms with it (`400 wrong_password` when it is `null` or
+        wrong). An account without one (`hasPassword: false`, made with Google sign-in) is
+        deleted with the session alone: it sends `{"password": null}`, after a confirmation in the
+        app. (A password change on such an account is `400 password_not_set`; deletion never is.)
+        A POST, not a DELETE with a body, because some proxies and clients drop DELETE bodies.
+      x-feature: core
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeleteAccountRequest" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400":
+          description: Validation failed, or the password is missing or wrong.
+          x-error-codes: [validation_failed, wrong_password]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/me/password:
+    put:
+      operationId: changePassword
+      tags: [Account]
+      summary: Change the caller's password
+      description: |
+        Revokes every other session of the account and answers with a new token, which replaces
+        the caller's. A wrong current password is `400 wrong_password`; an account without a
+        password (`hasPassword: false`) gets `400 password_not_set` (v1 has no "set a password").
+        The new password follows the same floor as sign-up.
+      x-feature: core
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChangePasswordRequest" }
+      responses:
+        "200":
+          description: The password changed; the new session replaces the old one.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400":
+          description: Validation failed, the current password is wrong, or the account has none.
+          x-error-codes: [validation_failed, wrong_password, password_not_set]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Catalog (core) ─────────────────────────────
+  /api/v1/titles:
+    get:
+      operationId: searchTitles
+      tags: [Catalog]
+      summary: Search and browse the catalog
+      description: |
+        Filters combine with AND; the values of one repeated filter combine with OR, except
+        `genre` (the title has **every** listed genre) and `excludeGenre` (the title has **none**
+        of them). `q` matches the title's `name` and `altNames`. A title with `rating: null`
+        matches only when the rating range is the whole 0–10 (no `minRating`/`maxRating`, or 0
+        and 10). When the caller is signed in, titles on the caller's blacklist are left out.
+        An unknown genre id, source slug or status value is `400 validation_failed`.
+
+        Sort values: `latest` (by `updatedAt`, the default), `popular` (by `rating`, nulls last),
+        `trending` (by `views`), `alphabetical` (by `name`). `order` defaults to `desc`, or to
+        `asc` with `sort=alphabetical`.
+      x-feature: core
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - $ref: "#/components/parameters/Q"
+        - name: genre
+          in: query
+          description: Genre ids the title must all have.
+          style: form
+          explode: true
+          schema: { type: array, items: { $ref: "#/components/schemas/Id" } }
+        - name: excludeGenre
+          in: query
+          description: Genre ids the title must not have.
+          style: form
+          explode: true
+          schema: { type: array, items: { $ref: "#/components/schemas/Id" } }
+        - name: status
+          in: query
+          description: Publication statuses (OR).
+          style: form
+          explode: true
+          schema: { type: array, items: { $ref: "#/components/schemas/TitleStatus" } }
+        - name: lang
+          in: query
+          description: Language codes (OR); the title has a source title in one of them.
+          style: form
+          explode: true
+          schema: { type: array, items: { $ref: "#/components/schemas/LangCode" } }
+        - name: source
+          in: query
+          description: Source slugs (OR); the title has a source title on one of them.
+          style: form
+          explode: true
+          schema: { type: array, items: { $ref: "#/components/schemas/SourceSlug" } }
+        - name: minRating
+          in: query
+          schema: { type: number, minimum: 0, maximum: 10 }
+        - name: maxRating
+          in: query
+          schema: { type: number, minimum: 0, maximum: 10 }
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/TitleSort" }
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          description: One page of titles.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TitlesPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/titles/{id}:
+    get:
+      operationId: getTitle
+      tags: [Catalog]
+      summary: One title by id
+      description: |
+        `me` is the caller's own state when signed in, `null` otherwise. `countView=false` asks the
+        server not to count this read as a view (background refreshes); a server that counts views
+        counts the read only when it is `true`.
+      x-feature: core
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/CountView"
+      responses:
+        "200":
+          description: The title.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Title" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/titles/by-slug/{slug}:
+    get:
+      operationId: getTitleBySlug
+      tags: [Catalog]
+      summary: One title by slug
+      description: The same title, in the same shape, as `GET /api/v1/titles/{id}`.
+      x-feature: core
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/SlugPath"
+        - $ref: "#/components/parameters/CountView"
+      responses:
+        "200":
+          description: The title.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Title" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/genres:
+    get:
+      operationId: listGenres
+      tags: [Catalog]
+      summary: Every genre (whole list)
+      x-feature: core
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      responses:
+        "200":
+          description: Every genre.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenreList" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Library (core) ─────────────────────────────
+  /api/v1/me/library:
+    get:
+      operationId: getLibrary
+      tags: [Library]
+      summary: One of the caller's library lists
+      description: |
+        Reads a list the caller filled through sync (kinds `favorite`, `planning`, `blacklist`).
+        `list` takes the sync kind names; an unknown value is `400 validation_failed`. Library
+        writes go through `POST /api/v1/sync/push` only. Sort values as in `searchTitles`.
+      x-feature: core
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - name: list
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/LibraryList" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/TitleSort" }
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          description: One page of the list.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TitlesPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Sync (core) ─────────────────────────────
+  /api/v1/sync/push:
+    post:
+      operationId: syncPush
+      tags: [Sync]
+      summary: Push sync records
+      description: |
+        The sync contract, unchanged from today's: shapes, kinds, conflict rules, caps and merges
+        are in `sync/sync.schema.json` and the worked examples beside it (`sync/rules/`,
+        `sync/merge/`). In the sync records `mainMangaId` means the **title id**; the name stays
+        until the next major version. An envelope that is not `{items: [1..500 objects]}` is
+        `400 validation_failed`; a bad item never fails the batch, it comes back `rejected`.
+
+        **Sync enums** (the schema itself cannot carry the markers, so they are stated here):
+        - `kind` is **open** in pull changes: the app skips a change whose kind it does not know
+          (today's app does). In a push it is **closed per server**: a server
+          rejects an item of a kind it does not know as `rejected` / `invalid` (schema check of
+          `pushItem`). New kinds come with a minor version, and the app pushes them only to a
+          server whose minor version has them.
+        - `status` of a push result is **open**: the app treats an unknown status as a rejection
+          and drops the op.
+        - `reason` of a push result is **open**: the app keeps it as text and does not branch on
+          it.
+        - `opinion` (kind `rating`) is **closed**: `up` or `down`.
+      x-feature: core
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "sync/sync.schema.json#/$defs/pushRequest" }
+      responses:
+        "200":
+          description: One result per item, and the cursor after the push.
+          content:
+            application/json:
+              schema: { $ref: "sync/sync.schema.json#/$defs/pushResponse" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/sync/pull:
+    get:
+      operationId: syncPull
+      tags: [Sync]
+      summary: Pull sync changes after a cursor
+      description: |
+        The first pull omits `cursor` and gets a full snapshot. Cursors are opaque: the app stores
+        and echoes them and never parses them. A bad cursor or limit is `400 validation_failed`.
+        `409` (body `{fullResyncRequired: true}`, fixed by the sync schema) tells the app to start
+        over without a cursor.
+      x-feature: core
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - name: cursor
+          in: query
+          description: The cursor from the previous pull or push; omitted on the first pull.
+          schema: { $ref: "sync/sync.schema.json#/$defs/cursor" }
+        - name: limit
+          in: query
+          description: At most this many changes (default 500).
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 500 }
+      responses:
+        "200":
+          description: A page of changes.
+          content:
+            application/json:
+              schema: { $ref: "sync/sync.schema.json#/$defs/pullResponse" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "409":
+          description: The cursor can no longer be served; pull again without one.
+          x-error-codes: []
+          content:
+            application/json:
+              schema: { $ref: "sync/sync.schema.json#/$defs/pullConflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Sources and definitions (core) ─────────────────────────────
+  /api/v1/sources:
+    get:
+      operationId: listSources
+      tags: [Sources and definitions]
+      summary: Every source (whole list)
+      description: |
+        Every source the catalog's source titles point to. A server that hosts chapters lists
+        itself as one source with `hosted: true` and its own origin as `website`.
+      x-feature: core
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      responses:
+        "200":
+          description: Every source.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceList" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/definitions/keys:
+    get:
+      operationId: listDefinitionKeys
+      tags: [Sources and definitions]
+      summary: The server's definition signing keys (whole list)
+      description: |
+        Ed25519 only. Key ids are unique on the server and mean something only within this
+        server. The list may be empty (a server with no definitions). The app pins the keys when
+        the server is added and its check passes.
+
+        **Planned rotation:** a key the app has not pinned yet is accepted only with an
+        `endorsement`: an Ed25519 signature by an already pinned key (`byKeyId`) over the UTF-8
+        statement `abyssreader-key-endorsement-v1\n<oldKeyId>\n<newKeyId>\n<newPublicKey>`
+        (`<oldKeyId>` = `byKeyId`, `<newPublicKey>` = the base64 text of `publicKey`). A key
+        that leaves the list is unpinned. A community server must never list a key equal to one
+        of the app's built-in owner keys.
+      x-feature: core
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      responses:
+        "200":
+          description: The keys.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DefinitionKeyList" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/definitions/manifest:
+    get:
+      operationId: getDefinitionManifest
+      tags: [Sources and definitions]
+      summary: One entry per source that has a definition (whole list)
+      description: |
+        Not paginated. `ETag` is required, and `If-None-Match` with the current ETag answers `304`.
+        A server with no definitions answers an empty list. A source title has
+        `hasDefinition: true` only when this manifest has its source's slug.
+
+        Signatures: each entry's `signature` is an Ed25519 signature, by the key `keyId` from
+        `GET /api/v1/definitions/keys`, over the UTF-8 statement
+        `abyssreader-definition-v2\n<sourceSlug>\n<definitionVersion>\n<contentHash>`; a revoked
+        entry (`revoked: true`, `contentHash: null`) signs
+        `abyssreader-revocation-v2\n<sourceSlug>\n<definitionVersion>` instead. The app trusts a
+        community server's definitions only through that server's own keys.
+
+        **Versions and revocations.** `definitionVersion` only grows per slug: the app keeps the
+        highest version it has accepted as the slug's floor and refuses any entry at or below it
+        (`version_rollback`). A revoked entry at version N revokes **every version of the slug
+        below N**: the app disables the slug's stored definition and raises the floor to N, so
+        neither it nor an older one can come back; a later definition must have a version above
+        N. A slug whose entry is revoked has `hasDefinition: false` on its source titles and
+        answers `404 not_found` on `GET /api/v1/definitions/{slug}`. A slug that leaves the
+        manifest is disabled the same way.
+      x-feature: core
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IfNoneMatch"
+      responses:
+        "200":
+          description: The manifest.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DefinitionManifest" }
+        "304":
+          description: Unchanged since the ETag sent in `If-None-Match`. No body.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/definitions/{slug}:
+    get:
+      operationId: getDefinition
+      tags: [Sources and definitions]
+      summary: A source's current definition
+      description: |
+        `ETag` is required, and `If-None-Match` with the current ETag answers `304`. `content` is
+        the definition's JSON text, valid against the definition schema used by the app's tests.
+        A versioned contract copy will include the `hosts` field the sandbox below relies on. `contentHash` is the lowercase hex SHA-256 of its UTF-8
+        bytes; `signature` follows the manifest's statement. A slug with no current definition
+        (unknown or revoked) is `404 not_found`.
+
+        **Definition sandbox.** A definition may contact only its `baseUrl`'s host and the host
+        names in its signed `hosts` list (image CDNs and the like): HTTPS public host names only,
+        never localhost, private, link-local, `.local` or IPv6 ULA addresses. The app enforces this
+        on every redirect hop, whoever signed the definition. A definition is at most 2 MB.
+      x-feature: core
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/SourceSlug" }
+        - $ref: "#/components/parameters/IfNoneMatch"
+      responses:
+        "200":
+          description: The definition.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DefinitionContent" }
+        "304":
+          description: Unchanged since the ETag sent in `If-None-Match`. No body.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/definitions/{slug}/health:
+    post:
+      operationId: reportDefinitionHealth
+      tags: [Sources and definitions]
+      summary: Report anonymous error counts for a definition
+      description: |
+        The app batches its definition errors per slug. The counts carry no account, device or
+        address information: the app sends **no `Authorization`** here (only `X-Access-Key` when
+        the server requires one), and a server must not ask for a session. `errorKind` is an open
+        enum, and a server accepts any snake_case value. An unknown slug is `404 not_found`.
+      x-feature: core
+      x-auth: none
+      security:
+        - {}
+        - accessKey: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/SourceSlug" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DefinitionHealthReport" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Comments (optional: comments) ─────────────────────────────
+  /api/v1/titles/{id}/comments:
+    get:
+      operationId: listTitleComments
+      tags: [Comments]
+      summary: A title's top-level comments
+      description: |
+        Sort values: `latest` (by `createdAt`, the default) and `popular` (by `upvotes` minus
+        `downvotes`). `order` defaults to `desc`.
+      x-feature: comments
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/CommentSort" }
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          description: One page of comments.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentsPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    post:
+      operationId: createTitleComment
+      tags: [Comments]
+      summary: Comment on a title
+      description: A server may limit the text length and the image hosts (`400 validation_failed`).
+      x-feature: comments
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentRequest" }
+      responses:
+        "201":
+          description: The new comment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/comments/{id}:
+    put:
+      operationId: updateComment
+      tags: [Comments]
+      summary: Replace the text, image and spoiler flag of the caller's own comment or reply
+      x-feature: comments
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentRequest" }
+      responses:
+        "200":
+          description: The updated comment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    delete:
+      operationId: deleteComment
+      tags: [Comments]
+      summary: Delete the caller's own comment or reply
+      description: |
+        Only its author may delete it (`403 forbidden` for anyone else); an unknown id is
+        `404 not_found`. Deleting a reply lowers its parent's `replyCount`. Replies other accounts
+        wrote under a deleted comment may stay, without the link to it (they are not the author's
+        content). The comment's votes and open reports go with it.
+      x-feature: comments
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/comments/{id}/replies:
+    get:
+      operationId: listCommentReplies
+      tags: [Comments]
+      summary: Replies to a comment
+      description: Replies are one level deep. Oldest first by default (`sort=latest`, `order=asc`).
+      x-feature: comments
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/ReplySort" }
+        - name: order
+          in: query
+          schema: { $ref: "#/components/schemas/ReplyOrder" }
+      responses:
+        "200":
+          description: One page of replies.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentsPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    post:
+      operationId: createCommentReply
+      tags: [Comments]
+      summary: Reply to a top-level comment
+      description: '`{id}` must be a top-level comment; a reply to a reply is `400 validation_failed`.'
+      x-feature: comments
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentRequest" }
+      responses:
+        "201":
+          description: The new reply.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/comments/{id}/vote:
+    put:
+      operationId: voteComment
+      tags: [Comments]
+      summary: Set or clear the caller's vote on a comment or reply
+      x-feature: comments
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoteRequest" }
+      responses:
+        "200":
+          description: The comment with its new counts and `me.vote`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/comments/{id}/reports:
+    post:
+      operationId: reportComment
+      tags: [Comments]
+      summary: Report a comment or reply to the server operator
+      description: |
+        A server with `comments` switched on must accept these reports. Only the server
+        operator sees them. While the same user's earlier report on the same item is still open,
+        a new one is `409 already_exists`; once the operator has closed it, a new report is
+        accepted.
+      x-feature: comments
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentReportRequest" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "409": { $ref: "#/components/responses/AlreadyReported" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Collections (optional: collections) ─────────────────────────────
+  /api/v1/collections:
+    get:
+      operationId: listCollections
+      tags: [Collections]
+      summary: Every collection
+      description: |
+        `q` matches the collection's name. Sort values: `latest` (by `updatedAt`, the default),
+        `popular` (by `upvotes`), `trending` (by `views`), `alphabetical` (by `name`). `order`
+        defaults to `desc`, or to `asc` with `sort=alphabetical`.
+      x-feature: collections
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/CollectionSort" }
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          description: One page of collections.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionsPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/FeatureDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    post:
+      operationId: createCollection
+      tags: [Collections]
+      summary: Create a collection
+      description: |
+        A server may limit how many titles a collection needs and holds, and the lengths
+        (`400 validation_failed`). An unknown title id is `400 validation_failed`.
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CollectionRequest" }
+      responses:
+        "201":
+          description: The new collection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Collection" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/FeatureDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/me/collections:
+    get:
+      operationId: listMyCollections
+      tags: [Collections]
+      summary: The caller's own collections
+      description: Parameters and sort values as in `listCollections`.
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/CollectionSort" }
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          description: One page of the caller's collections.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionsPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/FeatureDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collections/{id}:
+    get:
+      operationId: getCollection
+      tags: [Collections]
+      summary: One collection by id (public)
+      x-feature: collections
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: The collection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Collection" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    put:
+      operationId: updateCollection
+      tags: [Collections]
+      summary: Replace the caller's own collection
+      description: Replaces name, description and the whole title list. Limits as in `createCollection`.
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CollectionRequest" }
+      responses:
+        "200":
+          description: The updated collection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Collection" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    delete:
+      operationId: deleteCollection
+      tags: [Collections]
+      summary: Delete the caller's own collection, with its comments, votes and reports
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collections/by-slug/{slug}:
+    get:
+      operationId: getCollectionBySlug
+      tags: [Collections]
+      summary: One collection by slug (public)
+      description: The same collection, in the same shape, as `GET /api/v1/collections/{id}`.
+      x-feature: collections
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/SlugPath"
+      responses:
+        "200":
+          description: The collection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Collection" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collections/{id}/titles:
+    get:
+      operationId: listCollectionTitles
+      tags: [Collections]
+      summary: The titles in a collection
+      description: Sort values as in `searchTitles`, plus `added` (the collection's own order, the default, `asc`).
+      x-feature: collections
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/CollectionTitleSort" }
+        - name: order
+          in: query
+          description: Defaults to `asc` with `sort=added` or `sort=alphabetical`, else `desc`.
+          schema: { type: string, enum: [asc, desc], x-enum: closed }
+      responses:
+        "200":
+          description: One page of the collection's titles.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TitlesPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collections/{id}/vote:
+    put:
+      operationId: voteCollection
+      tags: [Collections]
+      summary: Set or clear the caller's vote on a collection
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoteRequest" }
+      responses:
+        "200":
+          description: The collection with its new counts and `me.vote`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Collection" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collections/{id}/reports:
+    post:
+      operationId: reportCollection
+      tags: [Collections]
+      summary: Report a collection to the server operator
+      description: |
+        A server with `collections` switched on must accept these reports. Only the server
+        operator sees them. While the same user's earlier report on the same collection is still
+        open, a new one is `409 already_exists`; once the operator has closed it, a new report is
+        accepted.
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CollectionReportRequest" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "409": { $ref: "#/components/responses/AlreadyReported" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collections/{id}/import:
+    post:
+      operationId: importCollection
+      tags: [Collections]
+      summary: Add every title of a collection to the caller's favorite list
+      description: |
+        Writes `favorite` sync records for the collection's titles that are not already on the
+        caller's favorite list, so the caller's devices get them on their next pull. No body.
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collections/{id}/comments:
+    get:
+      operationId: listCollectionComments
+      tags: [Collections]
+      summary: A collection's top-level comments
+      description: Sort values as in `listTitleComments`.
+      x-feature: collections
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/CommentSort" }
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          description: One page of comments.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionCommentsPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    post:
+      operationId: createCollectionComment
+      tags: [Collections]
+      summary: Comment on a collection
+      description: A server may limit the text length and the image hosts (`400 validation_failed`).
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentRequest" }
+      responses:
+        "201":
+          description: The new comment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionComment" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collection-comments/{id}:
+    put:
+      operationId: updateCollectionComment
+      tags: [Collections]
+      summary: Replace the caller's own collection comment or reply
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentRequest" }
+      responses:
+        "200":
+          description: The updated comment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionComment" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    delete:
+      operationId: deleteCollectionComment
+      tags: [Collections]
+      summary: Delete the caller's own collection comment or reply
+      description: |
+        Only its author may delete it (`403 forbidden` for anyone else); an unknown id is
+        `404 not_found`. Deleting a reply lowers its parent's `replyCount`. Replies other accounts
+        wrote under a deleted comment may stay, without the link to it (they are not the author's
+        content). The comment's votes and open reports go with it.
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collection-comments/{id}/replies:
+    get:
+      operationId: listCollectionCommentReplies
+      tags: [Collections]
+      summary: Replies to a collection comment
+      description: As `listCommentReplies`.
+      x-feature: collections
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/ReplySort" }
+        - name: order
+          in: query
+          schema: { $ref: "#/components/schemas/ReplyOrder" }
+      responses:
+        "200":
+          description: One page of replies.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionCommentsPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+    post:
+      operationId: createCollectionCommentReply
+      tags: [Collections]
+      summary: Reply to a top-level collection comment
+      description: '`{id}` must be a top-level collection comment; a reply to a reply is `400 validation_failed`.'
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentRequest" }
+      responses:
+        "201":
+          description: The new reply.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionComment" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collection-comments/{id}/vote:
+    put:
+      operationId: voteCollectionComment
+      tags: [Collections]
+      summary: Set or clear the caller's vote on a collection comment or reply
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoteRequest" }
+      responses:
+        "200":
+          description: The comment with its new counts and `me.vote`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionComment" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/collection-comments/{id}/reports:
+    post:
+      operationId: reportCollectionComment
+      tags: [Collections]
+      summary: Report a collection comment or reply to the server operator
+      description: |
+        Part of `collections`: a server with it switched on must accept these reports. Reasons
+        are the comment reasons. While the same user's earlier report on the same item is still
+        open, a new one is `409 already_exists`; once the operator has closed it, a new report is
+        accepted.
+      x-feature: collections
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentReportRequest" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "409": { $ref: "#/components/responses/AlreadyReported" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Stats (optional: stats) ─────────────────────────────
+  /api/v1/me/stats:
+    get:
+      operationId: getMyStats
+      tags: [Stats]
+      summary: The caller's reading and community statistics
+      description: |
+        A server may compute the counters on a schedule; `lastAggregatedAt` says when (`null`
+        before the first run). Counters for an optional feature that is switched off are `0`.
+      x-feature: stats
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      responses:
+        "200":
+          description: The statistics.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserStats" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/FeatureDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/rankings:
+    get:
+      operationId: listRankings
+      tags: [Stats]
+      summary: Users ranked by points
+      description: |
+        `period` picks the month so far (`monthly`) or all time (`overall`). `q` matches display
+        names. Sort values: `popular` (by `points`, the default, `desc`) and `alphabetical` (by
+        display name, `asc`). `rank` is always the position by points in the period, whatever
+        `q` and `sort` are.
+      x-feature: stats
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/RankingPeriod" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/RankingSort" }
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          description: One page of the ranking.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RankingsPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/FeatureDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Reports (optional: reports) ─────────────────────────────
+  /api/v1/titles/{id}/reports:
+    post:
+      operationId: reportTitle
+      tags: [Reports]
+      summary: Report a title to the server operator
+      description: |
+        Body `{reason, details?}`, like comment and collection reports: one `reason`, and
+        `details` of at most 500 characters. Only the server operator sees reports. While the same
+        user's earlier report on the same title is still open, a new one is `409 already_exists`;
+        once the operator has closed it, a new report is accepted.
+      x-feature: reports
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TitleReportRequest" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "409": { $ref: "#/components/responses/AlreadyReported" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Backup (optional: backup) ─────────────────────────────
+  /api/v1/me/backup:
+    get:
+      operationId: exportBackup
+      tags: [Backup]
+      summary: Download a backup of the caller's own account
+      description: |
+        A gzip'd Mihon/Tachiyomi `.tachibk` (Mihon's `Backup` protobuf), built from the caller's
+        sync data, streamed synchronously. It covers the caller's own account only.
+
+        - One `BackupManga` per source title the caller has chapter marks or a position on. A title
+          with neither gets one entry for its first readable source title (one whose source has a
+          definition, or the hosted one).
+        - Chapter marks become `BackupChapter{url, read, bookmark, lastPageRead, name,
+          chapterNumber, lastModifiedAt}`; the position becomes `BackupHistory{url, lastRead}`,
+          plus a chapter carrying `lastPageRead` when it has no mark. The synthesized chapter sets
+          `positionOnlyChapter` in the extra message.
+        - Every exported chapter has a non-empty `name` (field 2). When the sync name is missing
+          or blank, export uses `Chapter <number>` for a finite nonnegative chapter number, then
+          a descriptive last URL path segment after percent decoding, then `Chapter`. Segments
+          with file extensions and generic query-based viewer paths use `Chapter`. The number
+          uses plain decimal notation with no trailing fractional zeros.
+        - `favorite` is always written explicitly (Mihon's default is `true`).
+        - Every `BackupManga` carries the **AbyssReader extra message** at field number **9100**,
+          which other readers skip:
+
+          ```proto
+          message AbyssReaderExtra {
+            string sourceWebsite = 1;  // the source's website (https origin), as in GET /sources
+            repeated string lists = 2; // each of "favorite", "planning", "blacklist" at most once
+            optional string vote = 3;  // "up" or "down"; absent = no vote
+            optional bool positionOnlyChapter = 4; // true only when a chapter was synthesized for history
+            repeated uint32 derivedChapterNameIndexes = 5 [packed = false];
+          }
+          // In BackupManga: AbyssReaderExtra abyssReader = 9100;
+          ```
+
+          `sourceWebsite` is always written. `lists` names every library list the title is on,
+          in any order (the lists are independent sync kinds, so a title can be on several); no
+          element means it is on none. `vote` is absent when the caller has no vote on the title.
+          `derivedChapterNameIndexes` lists one-based indexes into that entry's `BackupChapter`
+          messages (field 16) in wire order. The export writes one field-5 tag with wire type 0
+          for each generated name and omits field 5 when every name is stored. No field ever
+          holds an empty string. A restore ignores values it does not know.
+        - Not exported: the updates inbox, downloads, Mihon categories, tracking and preferences.
+        - The file is not encrypted.
+      x-feature: backup
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      responses:
+        "200":
+          description: The backup file.
+          headers:
+            Content-Disposition:
+              description: '`attachment; filename="abyssreader_<server>_<yyyy-MM-dd_HH-mm>.tachibk"`'
+              required: true
+              schema:
+                type: string
+                pattern: '^attachment; filename="abyssreader_[^"/\\]+_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}\.tachibk"$'
+          content:
+            application/octet-stream:
+              schema: { type: string, contentMediaType: application/octet-stream }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/FeatureDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/me/backup/restore:
+    post:
+      operationId: restoreBackup
+      tags: [Backup]
+      summary: Restore a backup file into the caller's account
+      description: |
+        Synchronous. The server processes the file in memory and never stores or logs it.
+
+        **Input.** gzip or raw protobuf, whatever the file name: Mihon/Tachiyomi `.tachibk`, the
+        old AbyssReader app's `.proto.gz`, and files from `GET /api/v1/me/backup`. JSON or
+        undecodable input is `400 backup_invalid`; a file with no entries is a valid `200` with
+        zeros. Each server sets its own size limit (`413 too_large`), which must be **at least
+        10 MB**.
+
+        **Matching**, first hit wins:
+        1. the extra message's `sourceWebsite` + the backup entry's URL (a source matches when its
+           `website` has the same host, `www.` ignored);
+        2. otherwise the server's own map of Mihon/Tachiyomi numeric source ids (outside the
+           contract) + the URL;
+        3. otherwise the backup `title`, normalized, equals exactly one title's `name` or one of
+           its `altNames`: this restores only the library list, skips chapter marks and position,
+           and counts as `matchedByName`.
+
+        URLs compare as path + query (an absolute URL is reduced to that), ignoring a trailing
+        slash. Chapters match by source + chapter URL. A restore never creates titles or source
+        titles; anything not in the catalog is unmatched.
+
+        **Position-only chapters.** When `positionOnlyChapter` is true, the newest history row
+        has a positive `lastRead`, and exactly one chapter in that entry has the same wire URL as
+        that row, the chapter supplies the reading position and its page. It creates no chapter
+        mark if both `read` and `bookmark` are false. Genuine page-only marks are restored when
+        the flag is absent or false, or when the URL match is missing or ambiguous. Chapters
+        with `read` or `bookmark` set are always handled as marks.
+
+        **Derived chapter names.** Restore counts every chapter in wire order, including chapters
+        it later discards. It ignores zero and indexes beyond the chapter list and applies
+        repeated indexes once. A marked chapter's name is treated as absent before restoring
+        a mark or position, so a name missing from sync stays null and a saved name for the same
+        source and chapter is preserved. Unmarked names follow the existing merge rules. An
+        unmarked name matching a recognized legacy fallback can fill a missing name while
+        preserving an existing non-blank name for the same source and chapter.
+
+        **Merge** (adds, never removes; newer wins). Everything is written as ordinary sync
+        records, stamped with the file's own times (`favoriteModifiedAt`, `lastModifiedAt`,
+        history `lastRead`, or the restore time when the file has none), so an older file never
+        revives something removed later. `favorite=false`, `read=false` or a missing entry never
+        removes anything. `read` and `bookmark` are OR'd; `lastPageRead`, the position and the
+        vote follow the newer time. A Mihon or old-app entry with `favorite=true` and no extra
+        message goes on the favorite list. Categories, tracking, preferences, extension stores,
+        notes and excluded scanlators are ignored. Restoring the same file again changes nothing.
+      x-feature: backup
+      x-auth: required
+      security:
+        - session: []
+        - session: []
+          accessKey: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: "#/components/schemas/BackupUpload" }
+      responses:
+        "200":
+          description: What the restore matched and wrote.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupRestoreReport" }
+        "400":
+          description: Validation failed (no `file` part), or the file is not a backup.
+          x-error-codes: [validation_failed, backup_invalid]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/FeatureDisabled" }
+        "413":
+          description: Above this server's upload limit (every server accepts at least 10 MB).
+          x-error-codes: [too_large]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Google sign-in (optional: google-sign-in) ─────────────────────────────
+  /api/v1/auth/google/start:
+    get:
+      operationId: startGoogleSignIn
+      tags: [Google sign-in]
+      summary: Start Google sign-in in the browser
+      description: |
+        The app opens this URL in a browser tab (Custom Tabs / `ASWebAuthenticationSession`),
+        never in an embedded webview, so it carries no headers: no bearer and no access key.
+        The server redirects to Google with its own Web client. After Google, the server's own
+        callback (its path is the server's business) redirects to the one fixed app address:
+
+        - `com.premium.abyss.abyssreader://google-sign-in?state=<state>&code=<code>` on success;
+        - `com.premium.abyss.abyssreader://google-sign-in?state=<state>&error=cancelled` or
+          `…&error=google_failed` otherwise.
+
+        That is the only redirect target a server may use. The return carries only what happened
+        at Google; every account decision happens at `POST /api/v1/auth/google/token`. The app
+        ignores a return whose `state` is not its pending sign-in. Bad or missing parameters get
+        `400 validation_failed` as JSON, with no redirect.
+      x-feature: google-sign-in
+      x-auth: none
+      security: []
+      parameters:
+        - name: state
+          in: query
+          required: true
+          description: The app's random value, echoed on the return.
+          schema: { type: string, minLength: 16, maxLength: 256, pattern: '^[A-Za-z0-9._~-]+$' }
+        - name: codeChallenge
+          in: query
+          required: true
+          description: PKCE code challenge, base64url SHA-256 of the verifier, no padding.
+          schema: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+        - name: codeChallengeMethod
+          in: query
+          required: true
+          schema: { type: string, enum: [S256], x-enum: closed }
+      responses:
+        "302":
+          description: |
+            Redirect to `https://accounts.google.com/o/oauth2/v2/auth` with `response_type=code`,
+            the server's `client_id`, an https `redirect_uri` on the server, and a `scope`
+            containing `openid` and `email`.
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+                pattern: '^https://accounts\.google\.com/o/oauth2/v2/auth\?'
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "404": { $ref: "#/components/responses/FeatureDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/auth/google/token:
+    post:
+      operationId: exchangeGoogleCode
+      tags: [Google sign-in]
+      summary: Exchange the one-time code for a session
+      description: |
+        The code works once, lives 60 seconds and needs the PKCE verifier. The access key and
+        every account decision are checked here, so a wrong key creates nothing.
+
+        - Accounts are found by Google's `sub` only. When no account has the `sub` but a password
+          account has the email: `409 email_taken` ("sign in with your password"). There is no
+          linking in v1.
+        - A new account is made only when Google says the email is verified
+          (`400 email_unverified` otherwise) and never when sign-up is closed
+          (`403 sign_up_closed`); an existing `sub` still signs in then. Its display name comes
+          from the Google profile, made unique by the server. It has no password
+          (`hasPassword: false`).
+      x-feature: google-sign-in
+      x-auth: none
+      security:
+        - {}
+        - accessKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoogleTokenRequest" }
+      responses:
+        "200":
+          description: An existing account signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "201":
+          description: A new account was made and signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400":
+          description: Validation failed, the code is unknown, used, expired or does not match the verifier, or Google did not verify the email.
+          x-error-codes: [validation_failed, google_code_invalid, email_unverified]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403":
+          description: Access key problem, sign-up closed, or the account may not sign in.
+          x-error-codes: [access_key_required, access_key_invalid, sign_up_closed, account_disabled, account_suspended]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/FeatureDisabled" }
+        "409":
+          description: A password account already has this email.
+          x-error-codes: [email_taken]
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  # ───────────────────────────── Hosted chapters (optional: hosted-chapters) ─────────────────────────────
+  /api/v1/source-titles/{id}/chapters:
+    get:
+      operationId: listChapters
+      tags: [Hosted chapters]
+      summary: The chapters of a hosted source title
+      description: |
+        Only hosted source titles have chapters here; any other source title id is
+        `404 not_found`. Sort value: `number` (the default); `order` defaults to `desc`.
+        A server with `hosted-chapters` on has at least one hosted source title with a chapter
+        that has pages.
+      x-feature: hosted-chapters
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/Page"
+        - name: size
+          in: query
+          description: Page size (default 100, at most 100).
+          schema: { type: integer, minimum: 1, maximum: 100, default: 100 }
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/ChapterSort" }
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          description: One page of chapters.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChaptersPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+  /api/v1/chapters/{id}/pages:
+    get:
+      operationId: listChapterPages
+      tags: [Hosted chapters]
+      summary: A hosted chapter's pages (whole list)
+      description: |
+        Not paginated. Page images are JPEG, PNG or static WebP (no AVIF), at most 2000 px wide,
+        6000 px tall and 5 MB each; taller strips are served as slices within those limits.
+        `width` and `height` are the image's real pixel size. Image URLs follow the contract's
+        image rules: absolute https, loaded with no headers, never changing (a replaced page gets
+        a new URL). The access key does not protect them.
+      x-feature: hosted-chapters
+      x-auth: optional
+      security:
+        - {}
+        - session: []
+        - accessKey: []
+        - session: []
+          accessKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: The pages, in reading order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PageImageList" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/SessionInvalid" }
+        "403": { $ref: "#/components/responses/AccessKey" }
+        "404": { $ref: "#/components/responses/NotFoundOrDisabled" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/ServerError" }
+
+components:
+  securitySchemes:
+    session:
+      type: http
+      scheme: bearer
+      description: The opaque session token from sign-up, sign-in, a password change or Google sign-in.
+    accessKey:
+      type: apiKey
+      in: header
+      name: X-Access-Key
+      description: Required on every route except `/api/status` and the Google sign-in start when the server announces `accessKeyRequired`.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: 1-based page number.
+      schema: { type: integer, minimum: 1, default: 1 }
+    Size:
+      name: size
+      in: query
+      description: Page size (default 20, at most 100; more is `400 validation_failed`).
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Q:
+      name: q
+      in: query
+      description: Free-text search.
+      schema: { type: string, minLength: 1, maxLength: 200 }
+    Order:
+      name: order
+      in: query
+      description: Sort direction; the default is stated per route.
+      schema: { type: string, enum: [asc, desc], x-enum: closed }
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Id" }
+    SlugPath:
+      name: slug
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Slug" }
+    CountView:
+      name: countView
+      in: query
+      description: "`false` asks the server not to count this read as a view."
+      schema: { type: boolean, default: true }
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      description: The ETag from the last 200; the server answers 304 when it is still current.
+      schema: { type: string }
+
+  headers:
+    ETag:
+      description: Entity tag of the current content (required).
+      required: true
+      schema: { type: string, minLength: 1 }
+    RetryAfter:
+      description: Seconds to wait before the next request to this server.
+      required: true
+      schema: { type: string, pattern: '^[0-9]+$' }
+
+  responses:
+    NoContent:
+      description: Done; no body.
+    ValidationFailed:
+      description: The request breaks the contract or one of this server's limits.
+      x-error-codes: [validation_failed]
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    SessionInvalid:
+      description: The session token is not accepted (missing where required, expired, revoked, or its account disabled, suspended or deleted). The only status that signs the app out.
+      x-error-codes: [session_invalid]
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    AccessKey:
+      description: The server requires an access key and it is missing or wrong. Never signs out.
+      x-error-codes: [access_key_required, access_key_invalid]
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Access key problem, or the caller does not own this item.
+      x-error-codes: [access_key_required, access_key_invalid, forbidden]
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: No such item on this server.
+      x-error-codes: [not_found]
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    FeatureDisabled:
+      description: The optional feature this route belongs to is switched off.
+      x-error-codes: [feature_disabled]
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFoundOrDisabled:
+      description: No such item, or the optional feature this route belongs to is switched off.
+      x-error-codes: [not_found, feature_disabled]
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    AlreadyReported:
+      description: This user's earlier report on this item is still open.
+      x-error-codes: [already_exists]
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Too many requests; wait `Retry-After` seconds.
+      x-error-codes: [rate_limited]
+      headers:
+        Retry-After: { $ref: "#/components/headers/RetryAfter" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ServerError:
+      description: "`500 server_error` (the app retries once at most) or `503 unavailable`."
+      x-error-codes: [server_error, unavailable]
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    # ── Primitives ──
+    Id:
+      description: A server-local id, never reused for another thing of the same kind.
+      type: integer
+      minimum: 1
+      maximum: 2147483647
+    Timestamp:
+      description: ISO-8601 UTC with exactly three decimals and `Z`, as in sync.
+      type: string
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
+    HttpsUrl:
+      description: An absolute `https://` URL.
+      type: string
+      format: uri
+      pattern: '^https://[^\s/?#]+[^\s]*$'
+      maxLength: 2048
+    HttpsOrigin:
+      description: An `https://host[:port]` origin with no path.
+      type: string
+      pattern: '^https://[a-z0-9.-]+(:[0-9]{1,5})?$'
+    Slug:
+      description: A title's or collection's slug, unique among its kind on the server.
+      type: string
+      minLength: 1
+      maxLength: 255
+    SourceSlug:
+      description: A source's slug (the same pattern as `sourceSlug` in sync).
+      type: string
+      pattern: '^[a-z0-9][a-z0-9-]{0,63}$'
+    LangCode:
+      description: A language code (`en`, `es`, `pt-BR`).
+      type: string
+      pattern: '^[a-z]{2,3}(-[A-Za-z]{2,4})?$'
+    ResourceUrl:
+      description: |
+        An address on a source: a root-relative path (`/manga/foo/`) on the source's `website`,
+        or an absolute http(s) URL, as the source's definition expects it. On the hosted source
+        it is the server-relative path given by each route.
+      type: string
+      pattern: '^(https?://|/)'
+      minLength: 2
+      maxLength: 2048
+    VoteValue:
+      description: A vote, or `null` for none.
+      type: [string, "null"]
+      enum: [up, down, null]
+      x-enum: closed
+
+    # ── Errors ──
+    Error:
+      description: The body of every non-2xx response (except the sync pull's 409).
+      type: object
+      required: [code, message]
+      x-may-be-absent: [fields]
+      properties:
+        code:
+          description: "Machine-readable reason; an open enum (the app handles an unknown code by its HTTP status)."
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+          x-enum: open
+          x-values: [validation_failed, wrong_password, password_not_set, email_unverified, google_code_invalid, backup_invalid, session_invalid, access_key_required, access_key_invalid, account_disabled, account_suspended, forbidden, sign_up_closed, not_found, feature_disabled, already_exists, email_taken, too_large, rate_limited, server_error, unavailable]
+        message:
+          description: Human text in the request's `Accept-Language` when the server can; shown only when the app has no translation for `code`.
+          type: string
+          minLength: 1
+        fields:
+          description: Validation errors, one per field or query parameter.
+          type: array
+          items: { $ref: "#/components/schemas/FieldError" }
+    FieldError:
+      type: object
+      required: [field, code]
+      properties:
+        field:
+          description: The JSON field or query parameter name.
+          type: string
+          minLength: 1
+        code:
+          description: What is wrong with it; an open enum.
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+          x-enum: open
+          x-values: [required, invalid, too_short, too_long, too_small, too_large, too_many, too_few, unknown_value, not_allowed]
+
+    # ── Server status ──
+    ServerStatus:
+      type: object
+      required: [name, accessKeyRequired, signUpOpen, operator, contracts]
+      properties:
+        name:
+          description: The server's display name.
+          type: string
+          minLength: 1
+          maxLength: 80
+        accessKeyRequired:
+          description: Every route except this one and the Google sign-in start needs `X-Access-Key`.
+          type: boolean
+        signUpOpen:
+          description: "`false` when the operator closed sign-up; the sign-up route then answers `403 sign_up_closed`."
+          type: boolean
+        operator: { $ref: "#/components/schemas/OperatorDetails" }
+        contracts:
+          description: One entry per contract major version the server offers.
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/ContractOffer" }
+    OperatorDetails:
+      description: Who runs the server (core). The app shows it; the conformance check tests the shape only. There is no donation field.
+      type: object
+      required: [name, contact, privacyUrl, termsUrl, copyrightUrl]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        contact:
+          description: A `mailto:` or `https://` URI.
+          type: string
+          format: uri
+          pattern: '^(mailto:[^\s@]+@[^\s@]+|https://[^\s]+)$'
+        privacyUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+        termsUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+        copyrightUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+    ContractOffer:
+      type: object
+      required: [version, basePath, features]
+      properties:
+        version:
+          description: The contract version `MAJOR.MINOR` the server implements for this major.
+          type: string
+          pattern: '^[1-9][0-9]*\.(0|[1-9][0-9]*)$'
+        basePath:
+          description: Where this major's routes live; `/api/v1` for major 1.
+          type: string
+          pattern: '^/api/v[1-9][0-9]*$'
+        features:
+          description: The optional features switched on (core features are implied by the version). The app ignores names it does not know.
+          type: array
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/FeatureName" }
+    FeatureName:
+      description: An optional feature's name.
+      type: string
+      pattern: '^[a-z][a-z0-9-]*$'
+      x-enum: open
+      x-values: [comments, collections, stats, reports, backup, google-sign-in, hosted-chapters]
+
+    # ── Account ──
+    Account:
+      description: The signed-in account.
+      type: object
+      required: [id, displayName, email, avatarUrl, hasPassword]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        displayName: { type: string, minLength: 1, maxLength: 255 }
+        email: { type: string, format: email }
+        avatarUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+        hasPassword:
+          description: "`false` for an account made with Google sign-in: it signs in only with Google and is deleted with the session alone."
+          type: boolean
+    UserRef:
+      description: Another user as others see them.
+      type: object
+      required: [id, displayName, avatarUrl]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        displayName: { type: string, minLength: 1, maxLength: 255 }
+        avatarUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+    Session:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          description: "Opaque session token, sent as `Authorization: Bearer <token>`."
+          type: string
+          minLength: 1
+        user: { $ref: "#/components/schemas/Account" }
+    SignUpRequest:
+      type: object
+      required: [displayName, email, password]
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 255 }
+        email:
+          description: Any syntactically valid address; never checked for deliverability.
+          type: string
+          format: email
+          maxLength: 254
+        password: { type: string, minLength: 1, maxLength: 1024 }
+    SignInRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, minLength: 1, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 1024 }
+    UpdateProfileRequest:
+      type: object
+      required: [displayName, avatarUrl]
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 255 }
+        avatarUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string, minLength: 1, maxLength: 1024 }
+        newPassword: { type: string, minLength: 1, maxLength: 1024 }
+    DeleteAccountRequest:
+      type: object
+      required: [password]
+      properties:
+        password:
+          description: The current password; `null` for an account without one.
+          type: [string, "null"]
+          maxLength: 1024
+
+    # ── Catalog ──
+    Title:
+      description: One title of the catalog, merged from every source that offers it.
+      type: object
+      required: [id, slug, name, altNames, description, status, genres, authors, coverUrl, rating, views, langs, createdAt, updatedAt, sources, me]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        slug: { $ref: "#/components/schemas/Slug" }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        altNames:
+          description: Other names of the title.
+          type: array
+          items: { type: string, minLength: 1 }
+        description: { type: [string, "null"], minLength: 1 }
+        status: { $ref: "#/components/schemas/TitleStatus" }
+        genres:
+          type: array
+          items: { $ref: "#/components/schemas/GenreRef" }
+        authors:
+          type: array
+          items: { $ref: "#/components/schemas/Author" }
+        coverUrl:
+          description: The cover image, or `null` when the server has none.
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+        rating:
+          description: The title's rating from 0 to 10, from a source of the server's choice; `null` when unrated.
+          type: [number, "null"]
+          minimum: 0
+          maximum: 10
+        views:
+          description: How often the title was opened, as the server counts it.
+          type: integer
+          minimum: 0
+        langs:
+          description: The languages of its source titles.
+          type: array
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/LangCode" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt:
+          description: When the title last changed in the catalog; `sort=latest` orders by it.
+          $ref: "#/components/schemas/Timestamp"
+        sources:
+          description: The title's source titles. Every `sourceSlug` exists in `GET /api/v1/sources`.
+          type: array
+          items: { $ref: "#/components/schemas/SourceTitle" }
+        me:
+          description: The caller's own state; `null` when nobody is signed in.
+          anyOf: [{ $ref: "#/components/schemas/MyTitleState" }, { type: "null" }]
+    TitleStatus:
+      description: Publication status. A server without the information sends `unknown`.
+      type: string
+      pattern: '^[a-z][a-z0-9_]*$'
+      x-enum: open
+      x-values: [unknown, ongoing, completed, licensed, publishing_finished, cancelled, on_hiatus]
+    MyTitleState:
+      type: object
+      required: [favorite, planning, blacklist, vote]
+      properties:
+        favorite: { type: boolean }
+        planning: { type: boolean }
+        blacklist: { type: boolean }
+        vote: { $ref: "#/components/schemas/VoteValue" }
+    GenreRef:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        slug: { type: string, minLength: 1, maxLength: 255 }
+    Genre:
+      type: object
+      required: [id, name, slug, titleCount]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        slug: { type: string, minLength: 1, maxLength: 255 }
+        titleCount:
+          description: How many titles have this genre.
+          type: integer
+          minimum: 0
+    GenreList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Genre" }
+    Author:
+      description: A person credited on the title.
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        role:
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+          x-enum: open
+          x-values: [author, artist, unknown]
+    SourceTitle:
+      description: One title as one source offers it.
+      type: object
+      required: [id, sourceSlug, url, lang, hasDefinition, readingMode, rights]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        sourceSlug: { $ref: "#/components/schemas/SourceSlug" }
+        url:
+          description: Its address on the source; with the source it identifies the source title in sync, marks and backups. A hosted source title's is `/source-titles/{id}`.
+          $ref: "#/components/schemas/ResourceUrl"
+        lang: { $ref: "#/components/schemas/LangCode" }
+        hasDefinition:
+          description: "`true` only when the definitions manifest has this source's slug; always `false` on the hosted source."
+          type: boolean
+        readingMode:
+          description: The reader's default for this source title (the user's own setting wins); hosted source titles only, `null` elsewhere.
+          anyOf: [{ $ref: "#/components/schemas/ReadingMode" }, { type: "null" }]
+        rights:
+          description: Licence and credit facts of a hosted title; `null` when absent and on every source title that is not hosted. The app shows them and never judges them.
+          anyOf: [{ $ref: "#/components/schemas/Rights" }, { type: "null" }]
+    ReadingMode:
+      type: string
+      pattern: '^[a-z][a-z0-9_]*$'
+      x-enum: open
+      x-values: [paged_ltr, paged_rtl, long_strip]
+    Rights:
+      type: object
+      required: [holder, licence, licenceUrl, attribution, changes]
+      properties:
+        holder: { type: [string, "null"], minLength: 1 }
+        licence:
+          description: Free text, for example "CC BY 4.0".
+          type: [string, "null"]
+          minLength: 1
+        licenceUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+        attribution: { type: [string, "null"], minLength: 1 }
+        changes:
+          description: The "modified" note.
+          type: [string, "null"]
+          minLength: 1
+    TitleSort:
+      type: string
+      enum: [latest, popular, trending, alphabetical]
+      default: latest
+      x-enum: closed
+    LibraryList:
+      description: A library list, named like the sync kinds.
+      type: string
+      enum: [favorite, planning, blacklist]
+      x-enum: closed
+    TitlesPage:
+      type: object
+      required: [items, page, size, totalItems, hasMore]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Title" }
+        page: { type: integer, minimum: 1 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        totalItems: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+
+    # ── Sources and definitions ──
+    Source:
+      type: object
+      required: [slug, name, iconUrl, lang, website, hosted]
+      properties:
+        slug: { $ref: "#/components/schemas/SourceSlug" }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        iconUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+        lang: { $ref: "#/components/schemas/LangCode" }
+        website:
+          description: The source website, which identifies the source across servers (compared by host, `www.` ignored). The hosted source's is the server's own origin.
+          $ref: "#/components/schemas/HttpsOrigin"
+        hosted:
+          description: "`true` only for the hosted source: the server itself, which stores its chapters and pages."
+          type: boolean
+    SourceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Source" }
+    Base64Ed25519PublicKey:
+      description: A raw 32-byte Ed25519 public key, standard base64 with padding.
+      type: string
+      pattern: '^[A-Za-z0-9+/]{43}=$'
+    Base64Ed25519Signature:
+      description: A raw 64-byte Ed25519 signature, standard base64 with padding.
+      type: string
+      pattern: '^[A-Za-z0-9+/]{86}==$'
+    KeyId:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: '^[A-Za-z0-9._-]+$'
+    DefinitionKey:
+      type: object
+      required: [keyId, publicKey, endorsement]
+      properties:
+        keyId: { $ref: "#/components/schemas/KeyId" }
+        publicKey: { $ref: "#/components/schemas/Base64Ed25519PublicKey" }
+        endorsement:
+          description: Signature by an already pinned key that lets the app pin this one; `null` when there is none.
+          anyOf: [{ $ref: "#/components/schemas/KeyEndorsement" }, { type: "null" }]
+    KeyEndorsement:
+      type: object
+      required: [byKeyId, signature]
+      properties:
+        byKeyId: { $ref: "#/components/schemas/KeyId" }
+        signature: { $ref: "#/components/schemas/Base64Ed25519Signature" }
+    DefinitionKeyList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DefinitionKey" }
+    Sha256Hex:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+    ManifestEntry:
+      type: object
+      required: [sourceSlug, definitionVersion, contentHash, signature, keyId, minAppVersion, revoked]
+      properties:
+        sourceSlug: { $ref: "#/components/schemas/SourceSlug" }
+        definitionVersion: { type: integer, minimum: 1 }
+        contentHash:
+          description: SHA-256 of the definition's content; `null` on a revoked entry.
+          anyOf: [{ $ref: "#/components/schemas/Sha256Hex" }, { type: "null" }]
+        signature: { $ref: "#/components/schemas/Base64Ed25519Signature" }
+        keyId: { $ref: "#/components/schemas/KeyId" }
+        minAppVersion:
+          description: The definition's own gate (separate from contract versions); `null` when it has none.
+          type: [string, "null"]
+          pattern: '^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}$'
+        revoked: { type: boolean }
+    DefinitionManifest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ManifestEntry" }
+    DefinitionContent:
+      type: object
+      required: [content, contentHash, signature, keyId, definitionVersion]
+      properties:
+        content:
+          description: The definition's JSON text (at most 2 MB).
+          type: string
+          minLength: 2
+          maxLength: 2097152
+        contentHash: { $ref: "#/components/schemas/Sha256Hex" }
+        signature: { $ref: "#/components/schemas/Base64Ed25519Signature" }
+        keyId: { $ref: "#/components/schemas/KeyId" }
+        definitionVersion: { type: integer, minimum: 1 }
+    DefinitionHealthReport:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/DefinitionHealthItem" }
+    DefinitionHealthItem:
+      type: object
+      required: [definitionVersion, errorKind, count]
+      properties:
+        definitionVersion: { type: integer, minimum: 1 }
+        errorKind:
+          description: The kind of error; an open enum, and a server accepts any snake_case value.
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+          x-enum: open
+          x-values: [network, cloudflare, selector_miss, parse, decrypt, outdated, rate_limited, signature_invalid, version_rollback]
+        count: { type: integer, minimum: 1 }
+
+    # ── Comments ──
+    MyVote:
+      type: object
+      required: [vote]
+      properties:
+        vote: { $ref: "#/components/schemas/VoteValue" }
+    VoteRequest:
+      type: object
+      required: [vote]
+      properties:
+        vote: { $ref: "#/components/schemas/VoteValue" }
+    Comment:
+      description: A comment on a title, or a reply to one.
+      type: object
+      required: [id, titleId, parentId, text, imageUrl, spoiler, author, upvotes, downvotes, replyCount, createdAt, updatedAt, me]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        titleId: { $ref: "#/components/schemas/Id" }
+        parentId:
+          description: The top-level comment this replies to; `null` on a top-level comment.
+          anyOf: [{ $ref: "#/components/schemas/Id" }, { type: "null" }]
+        text: { type: string, minLength: 1 }
+        imageUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+        spoiler: { type: boolean }
+        author: { $ref: "#/components/schemas/UserRef" }
+        upvotes: { type: integer, minimum: 0 }
+        downvotes: { type: integer, minimum: 0 }
+        replyCount:
+          description: Replies to it (always 0 on a reply).
+          type: integer
+          minimum: 0
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+        me:
+          description: The caller's vote; `null` when nobody is signed in.
+          anyOf: [{ $ref: "#/components/schemas/MyVote" }, { type: "null" }]
+    CommentRequest:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 10000 }
+        imageUrl:
+          description: An image to show with it; a server may limit the hosts.
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+        spoiler: { type: boolean, default: false }
+    CommentSort:
+      type: string
+      enum: [latest, popular]
+      default: latest
+      x-enum: closed
+    ReplySort:
+      type: string
+      enum: [latest]
+      default: latest
+      x-enum: closed
+    ReplyOrder:
+      type: string
+      enum: [asc, desc]
+      default: asc
+      x-enum: closed
+    CommentsPage:
+      type: object
+      required: [items, page, size, totalItems, hasMore]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Comment" }
+        page: { type: integer, minimum: 1 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        totalItems: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+    ReportDetails:
+      description: Free text for the server operator, at most 500 characters; `null` or absent for none.
+      type: [string, "null"]
+      minLength: 1
+      maxLength: 500
+    CommentReportRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { $ref: "#/components/schemas/CommentReportReason" }
+        details: { $ref: "#/components/schemas/ReportDetails" }
+    CommentReportReason:
+      description: Why a comment or reply is reported.
+      type: string
+      pattern: '^[a-z][a-z0-9_]*$'
+      x-enum: open
+      x-values: [spam, harassment_or_hate, sexual_content, illegal_content, spoiler, other]
+
+    # ── Collections ──
+    Collection:
+      description: A user's public list of titles.
+      type: object
+      required: [id, slug, name, description, owner, titleCount, commentCount, upvotes, downvotes, views, coverUrls, createdAt, updatedAt, me]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        slug: { $ref: "#/components/schemas/Slug" }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: [string, "null"], minLength: 1 }
+        owner: { $ref: "#/components/schemas/UserRef" }
+        titleCount: { type: integer, minimum: 0 }
+        commentCount: { type: integer, minimum: 0 }
+        upvotes: { type: integer, minimum: 0 }
+        downvotes: { type: integer, minimum: 0 }
+        views: { type: integer, minimum: 0 }
+        coverUrls:
+          description: Covers of its first titles, for a preview (at most 10).
+          type: array
+          maxItems: 10
+          items: { $ref: "#/components/schemas/HttpsUrl" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+        me:
+          description: The caller's vote; `null` when nobody is signed in.
+          anyOf: [{ $ref: "#/components/schemas/MyVote" }, { type: "null" }]
+    CollectionRequest:
+      type: object
+      required: [name, titleIds]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 10000
+        titleIds:
+          description: The titles, in the collection's order.
+          type: array
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/Id" }
+    CollectionSort:
+      type: string
+      enum: [latest, popular, trending, alphabetical]
+      default: latest
+      x-enum: closed
+    CollectionTitleSort:
+      type: string
+      enum: [added, latest, popular, trending, alphabetical]
+      default: added
+      x-enum: closed
+    CollectionsPage:
+      type: object
+      required: [items, page, size, totalItems, hasMore]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Collection" }
+        page: { type: integer, minimum: 1 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        totalItems: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+    CollectionReportRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { $ref: "#/components/schemas/CollectionReportReason" }
+        details: { $ref: "#/components/schemas/ReportDetails" }
+    CollectionReportReason:
+      description: Why a collection is reported.
+      type: string
+      pattern: '^[a-z][a-z0-9_]*$'
+      x-enum: open
+      x-values: [spam, harassment_or_hate, sexual_content, illegal_content, broken_titles, duplicate_titles, other]
+    CollectionComment:
+      description: A comment on a collection, or a reply to one.
+      type: object
+      required: [id, collectionId, parentId, text, imageUrl, spoiler, author, upvotes, downvotes, replyCount, createdAt, updatedAt, me]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        collectionId: { $ref: "#/components/schemas/Id" }
+        parentId:
+          description: The top-level comment this replies to; `null` on a top-level comment.
+          anyOf: [{ $ref: "#/components/schemas/Id" }, { type: "null" }]
+        text: { type: string, minLength: 1 }
+        imageUrl:
+          anyOf: [{ $ref: "#/components/schemas/HttpsUrl" }, { type: "null" }]
+        spoiler: { type: boolean }
+        author: { $ref: "#/components/schemas/UserRef" }
+        upvotes: { type: integer, minimum: 0 }
+        downvotes: { type: integer, minimum: 0 }
+        replyCount: { type: integer, minimum: 0 }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+        me:
+          anyOf: [{ $ref: "#/components/schemas/MyVote" }, { type: "null" }]
+    CollectionCommentsPage:
+      type: object
+      required: [items, page, size, totalItems, hasMore]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CollectionComment" }
+        page: { type: integer, minimum: 1 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        totalItems: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+
+    # ── Stats ──
+    UserStats:
+      description: |
+        The caller's statistics. Vocabulary as everywhere in the contract: a **vote** is up or
+        down (on a title, comment or collection); `planning` is the library list.
+      type: object
+      required: [titlesRead, lastReadAt, currentStreakDays, longestStreakDays, favoriteCount, planningCount, blacklistCount, titleVotesGiven, titleUpvotesGiven, titleDownvotesGiven, commentsPosted, commentUpvotesGiven, commentDownvotesGiven, commentUpvotesReceived, commentDownvotesReceived, collectionsCreated, collectionTitles, collectionCommentsPosted, collectionCommentUpvotesGiven, collectionCommentDownvotesGiven, collectionCommentUpvotesReceived, collectionCommentDownvotesReceived, collectionVotesGiven, collectionVotesReceived, reportsSubmitted, genresInteracted, lastAggregatedAt, topGenres]
+      properties:
+        titlesRead: { type: integer, minimum: 0, description: Distinct titles the user read. }
+        lastReadAt:
+          anyOf: [{ $ref: "#/components/schemas/Timestamp" }, { type: "null" }]
+        currentStreakDays: { type: integer, minimum: 0, description: "Days in a row with reading, up to today." }
+        longestStreakDays: { type: integer, minimum: 0 }
+        favoriteCount: { type: integer, minimum: 0, description: Titles on the favorite list. }
+        planningCount: { type: integer, minimum: 0, description: Titles on the planning list. }
+        blacklistCount: { type: integer, minimum: 0, description: Titles on the blacklist. }
+        titleVotesGiven: { type: integer, minimum: 0, description: Votes on titles (up and down). }
+        titleUpvotesGiven: { type: integer, minimum: 0 }
+        titleDownvotesGiven: { type: integer, minimum: 0 }
+        commentsPosted: { type: integer, minimum: 0, description: Title comments and replies. }
+        commentUpvotesGiven: { type: integer, minimum: 0 }
+        commentDownvotesGiven: { type: integer, minimum: 0 }
+        commentUpvotesReceived: { type: integer, minimum: 0 }
+        commentDownvotesReceived: { type: integer, minimum: 0 }
+        collectionsCreated: { type: integer, minimum: 0 }
+        collectionTitles: { type: integer, minimum: 0, description: Titles across the user's collections. }
+        collectionCommentsPosted: { type: integer, minimum: 0 }
+        collectionCommentUpvotesGiven: { type: integer, minimum: 0 }
+        collectionCommentDownvotesGiven: { type: integer, minimum: 0 }
+        collectionCommentUpvotesReceived: { type: integer, minimum: 0 }
+        collectionCommentDownvotesReceived: { type: integer, minimum: 0 }
+        collectionVotesGiven: { type: integer, minimum: 0, description: Votes on collections. }
+        collectionVotesReceived: { type: integer, minimum: 0, description: Votes on the user's collections. }
+        reportsSubmitted: { type: integer, minimum: 0, description: Reports of every kind. }
+        genresInteracted: { type: integer, minimum: 0, description: Distinct genres of the titles the user read. }
+        lastAggregatedAt:
+          description: When the server last computed these counters; `null` before the first run.
+          anyOf: [{ $ref: "#/components/schemas/Timestamp" }, { type: "null" }]
+        topGenres:
+          description: The user's most read genres, most read first.
+          type: array
+          items: { $ref: "#/components/schemas/GenreCount" }
+    GenreCount:
+      type: object
+      required: [id, name, count]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        count: { type: integer, minimum: 0 }
+    RankingPeriod:
+      type: string
+      enum: [monthly, overall]
+      x-enum: closed
+    RankingSort:
+      type: string
+      enum: [popular, alphabetical]
+      default: popular
+      x-enum: closed
+    Ranking:
+      type: object
+      required: [rank, user, points]
+      properties:
+        rank:
+          description: 1-based position by points in the period.
+          type: integer
+          minimum: 1
+        user: { $ref: "#/components/schemas/UserRef" }
+        points: { type: integer, minimum: 0 }
+    RankingsPage:
+      type: object
+      required: [items, page, size, totalItems, hasMore]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Ranking" }
+        page: { type: integer, minimum: 1 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        totalItems: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+
+    # ── Reports ──
+    TitleReportRequest:
+      description: The same shape as comment and collection reports (owner decision 2026-11-19).
+      type: object
+      required: [reason]
+      properties:
+        reason: { $ref: "#/components/schemas/TitleReportReason" }
+        details: { $ref: "#/components/schemas/ReportDetails" }
+    TitleReportReason:
+      description: Why a title is reported. One value per report.
+      type: string
+      pattern: '^[a-z][a-z0-9_]*$'
+      x-enum: open
+      x-values: [wrong_information, wrong_source, chapter_not_working, other]
+
+    # ── Backup ──
+    BackupUpload:
+      type: object
+      required: [file]
+      properties:
+        file:
+          description: The backup file (gzip or raw protobuf; any file name).
+          type: string
+          contentMediaType: application/octet-stream
+    BackupRestoreReport:
+      type: object
+      required: [titles, chapterMarks, unmatched]
+      properties:
+        titles:
+          type: object
+          required: [matched, matchedByName, unmatched]
+          properties:
+            matched: { type: integer, minimum: 0, description: Entries matched by source website or numeric id + URL. }
+            matchedByName: { type: integer, minimum: 0, description: Entries matched only by a unique name (library list only). }
+            unmatched: { type: integer, minimum: 0 }
+        chapterMarks:
+          type: object
+          required: [restored, skipped]
+          properties:
+            restored: { type: integer, minimum: 0 }
+            skipped: { type: integer, minimum: 0 }
+        unmatched:
+          description: The unmatched entries, at most 500.
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/UnmatchedBackupEntry" }
+    UnmatchedBackupEntry:
+      type: object
+      required: [title, sourceName]
+      properties:
+        title: { type: string }
+        sourceName:
+          description: From the file's `backupSources`; `null` when the file does not name the source.
+          type: [string, "null"]
+
+    # ── Google sign-in ──
+    GoogleTokenRequest:
+      type: object
+      required: [code, codeVerifier]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 512 }
+        codeVerifier:
+          description: The PKCE verifier (RFC 7636).
+          type: string
+          pattern: '^[A-Za-z0-9._~-]{43,128}$'
+
+    # ── Hosted chapters ──
+    Chapter:
+      type: object
+      required: [id, url, number, name, volume, publishedAt, pageCount, credits]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        url:
+          description: "`/chapters/{id}`, server-relative; with the hosted source it is the chapter's identity for marks, history and sync."
+          type: string
+          pattern: '^/chapters/[1-9][0-9]{0,9}$'
+        number: { type: [number, "null"], minimum: 0 }
+        name: { type: [string, "null"], minLength: 1, maxLength: 1000 }
+        volume: { type: [number, "null"], minimum: 0 }
+        publishedAt: { $ref: "#/components/schemas/Timestamp" }
+        pageCount: { type: integer, minimum: 1 }
+        credits:
+          description: Who made or translated this chapter, as free text; `null` when absent.
+          type: [string, "null"]
+          minLength: 1
+    ChapterSort:
+      type: string
+      enum: [number]
+      default: number
+      x-enum: closed
+    ChaptersPage:
+      type: object
+      required: [items, page, size, totalItems, hasMore]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Chapter" }
+        page: { type: integer, minimum: 1 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        totalItems: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+    PageImage:
+      type: object
+      required: [index, imageUrl, width, height]
+      properties:
+        index:
+          description: 0-based position in the chapter.
+          type: integer
+          minimum: 0
+        imageUrl: { $ref: "#/components/schemas/HttpsUrl" }
+        width: { type: integer, minimum: 1, maximum: 2000 }
+        height: { type: integer, minimum: 1, maximum: 6000 }
+    PageImageList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/PageImage" }

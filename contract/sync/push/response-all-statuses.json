@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "opId": "00000000-0000-4000-8000-000000000001",
+      "status": "applied"
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000002",
+      "status": "stale"
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000003",
+      "status": "rejected",
+      "reason": "unknown_title"
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000004",
+      "status": "rejected",
+      "reason": "unknown_source"
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000005",
+      "status": "rejected",
+      "reason": "cap"
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000006",
+      "status": "rejected",
+      "reason": "invalid"
+    }
+  ],
+  "cursor": "d.4711"
+}

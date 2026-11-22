@@ -1,0 +1,28 @@
+{
+  "name": "delete-unknown-key-tombstones",
+  "description": "a delete with nothing stored → applied: a tombstone is written so other devices learn it",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "stored": null,
+  "incoming": {
+    "opId": "00000000-0000-4000-8000-000000000216",
+    "kind": "planning",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": true
+  },
+  "expected": {
+    "status": "applied",
+    "storedAfter": {
+      "kind": "planning",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+      "deleted": true
+    }
+  }
+}

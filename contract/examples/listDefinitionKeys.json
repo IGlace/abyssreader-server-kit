@@ -1,0 +1,34 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "listDefinitionKeys",
+  "summary": "Key k2 endorsed by the already pinned k1 (planned rotation).",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/definitions/keys",
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "keyId": "k1",
+          "publicKey": "cmXgugex26OS3ykge2Vz5RCrlr6Hjjs/QgFH5fYXmok=",
+          "endorsement": null
+        },
+        {
+          "keyId": "k2",
+          "publicKey": "TE2k08DzTxVtNw9diNXWJEg9FeuISo4Xp4o2WfVQVBA=",
+          "endorsement": {
+            "byKeyId": "k1",
+            "signature": "ZezB5429p4bDPaMBRIC4yAVyiU4ltY0JHzHV9EOuQrnV9tXffMu6g5+5EmrGb0+mN9yqbqJKrkXaeyXBNShJCg=="
+          }
+        }
+      ]
+    }
+  }
+}

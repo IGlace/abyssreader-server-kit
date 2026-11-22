@@ -1,0 +1,106 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "getTitle",
+  "summary": "Title details for a signed-in user; the first source title is hosted.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/titles/42",
+    "query": {
+      "countView": true
+    },
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en",
+      "Authorization": "Bearer eyJhbGciOiJIUzUxMiJ9.opaque-session-token.example"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": 42,
+      "slug": "the-lantern-keeper",
+      "name": "The Lantern Keeper",
+      "altNames": [
+        "Lantern Keeper",
+        "El guardián del farol"
+      ],
+      "description": "A lighthouse keeper's apprentice finds the lamp answers back.",
+      "status": "ongoing",
+      "genres": [
+        {
+          "id": 3,
+          "name": "Fantasy",
+          "slug": "fantasy"
+        },
+        {
+          "id": 7,
+          "name": "Adventure",
+          "slug": "adventure"
+        }
+      ],
+      "authors": [
+        {
+          "id": 11,
+          "name": "Mira Okafor",
+          "role": "author"
+        },
+        {
+          "id": 12,
+          "name": "Jun Sato",
+          "role": "artist"
+        }
+      ],
+      "coverUrl": "https://lantern.example.org/covers/42-1a2b3c.webp",
+      "rating": 8.4,
+      "views": 15230,
+      "langs": [
+        "en",
+        "es"
+      ],
+      "createdAt": "2026-03-02T09:15:00.000Z",
+      "updatedAt": "2026-11-15T18:40:12.345Z",
+      "sources": [
+        {
+          "id": 501,
+          "sourceSlug": "lantern",
+          "url": "/source-titles/501",
+          "lang": "en",
+          "hasDefinition": false,
+          "readingMode": "long_strip",
+          "rights": {
+            "holder": "Mira Okafor",
+            "licence": "CC BY 4.0",
+            "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+            "attribution": "“The Lantern Keeper” by Mira Okafor, CC BY 4.0",
+            "changes": "Pages sliced into long-strip segments."
+          }
+        },
+        {
+          "id": 502,
+          "sourceSlug": "paper-moon",
+          "url": "/series/the-lantern-keeper/",
+          "lang": "en",
+          "hasDefinition": true,
+          "readingMode": null,
+          "rights": null
+        },
+        {
+          "id": 503,
+          "sourceSlug": "luna-es",
+          "url": "/manga/el-guardian-del-farol",
+          "lang": "es",
+          "hasDefinition": false,
+          "readingMode": null,
+          "rights": null
+        }
+      ],
+      "me": {
+        "favorite": true,
+        "planning": false,
+        "blacklist": false,
+        "vote": "up"
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "exchangeGoogleCode",
+  "summary": "A new account made with Google: 201, and no password.",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/auth/google/token",
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en"
+    },
+    "body": {
+      "code": "4/0AeanS0Example-one-time-code",
+      "codeVerifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "token": "eyJhbGciOiJIUzUxMiJ9.opaque-session-token.example",
+      "user": {
+        "id": 1004,
+        "displayName": "Mira O",
+        "email": "mira@example.com",
+        "avatarUrl": null,
+        "hasPassword": false
+      }
+    }
+  }
+}

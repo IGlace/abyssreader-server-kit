@@ -1,0 +1,110 @@
+{
+  "items": [
+    {
+      "opId": "00000000-0000-4000-8000-000000000001",
+      "kind": "favorite",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000002",
+      "kind": "planning",
+      "key": {
+        "mainMangaId": 2192
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T14:00:01.000Z",
+      "deleted": false
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000003",
+      "kind": "blacklist",
+      "key": {
+        "mainMangaId": 39573
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T14:00:02.000Z",
+      "deleted": true
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000004",
+      "kind": "rating",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": {
+        "opinion": "up"
+      },
+      "clientUpdatedAt": "2026-10-10T14:00:03.000Z",
+      "deleted": false
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000005",
+      "kind": "position",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": {
+        "sourceSlug": "toonily",
+        "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/",
+        "chapterNumber": 84,
+        "chapterName": "Chapter 84",
+        "pageIndex": 12
+      },
+      "clientUpdatedAt": "2026-10-10T14:00:04.000Z",
+      "deleted": false
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000006",
+      "kind": "chapterMark",
+      "key": {
+        "mainMangaId": 1498,
+        "sourceSlug": "toonily",
+        "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-84/"
+      },
+      "data": {
+        "chapterNumber": 84,
+        "chapterName": "Chapter 84",
+        "read": true,
+        "lastPageRead": 22,
+        "totalPages": 22,
+        "bookmarked": false
+      },
+      "clientUpdatedAt": "2026-10-10T14:00:05.000Z",
+      "deleted": false
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000007",
+      "kind": "inbox",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": {
+        "sourceSlug": "toonily",
+        "latestChapterNumber": 85,
+        "latestChapterName": "Chapter 85",
+        "latestChapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-85/",
+        "detectedAt": "2026-10-10T13:55:00.000Z",
+        "seen": true
+      },
+      "clientUpdatedAt": "2026-10-10T14:00:06.000Z",
+      "deleted": false
+    },
+    {
+      "opId": "00000000-0000-4000-8000-000000000008",
+      "kind": "chapterMark",
+      "key": {
+        "mainMangaId": 1498,
+        "sourceSlug": "toonily",
+        "chapterUrl": "https://toonily.com/webtoon/legendary-youngest-son/chapter-85/"
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T14:00:07.000Z",
+      "deleted": true
+    }
+  ]
+}

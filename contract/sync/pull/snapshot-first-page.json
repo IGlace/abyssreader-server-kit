@@ -1,0 +1,41 @@
+{
+  "changes": [
+    {
+      "kind": "favorite",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T09:00:00.000Z",
+      "deleted": false
+    },
+    {
+      "kind": "rating",
+      "key": {
+        "mainMangaId": 2192
+      },
+      "data": {
+        "opinion": "down"
+      },
+      "clientUpdatedAt": "2026-10-10T09:01:00.000Z",
+      "deleted": false
+    },
+    {
+      "kind": "position",
+      "key": {
+        "mainMangaId": 2192
+      },
+      "data": {
+        "sourceSlug": null,
+        "chapterUrl": null,
+        "chapterNumber": 31.5,
+        "chapterName": null,
+        "pageIndex": null
+      },
+      "clientUpdatedAt": "2025-03-04T18:22:10.000Z",
+      "deleted": false
+    }
+  ],
+  "cursor": "s.4711.position.88412",
+  "hasMore": true
+}

@@ -1,0 +1,36 @@
+{
+  "name": "clock-clamped",
+  "description": "clientUpdatedAt > serverNow + 5 min is clamped to serverNow before comparing and storing",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "stored": {
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": false
+  },
+  "incoming": {
+    "opId": "00000000-0000-4000-8000-000000000208",
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T15:10:00.000Z",
+    "deleted": false
+  },
+  "expected": {
+    "status": "applied",
+    "storedAfter": {
+      "kind": "favorite",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T15:00:00.000Z",
+      "deleted": false
+    }
+  }
+}

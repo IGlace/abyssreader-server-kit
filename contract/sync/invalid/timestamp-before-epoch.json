@@ -1,0 +1,16 @@
+{
+  "name": "timestamp-before-epoch",
+  "description": "clientUpdatedAt before 1970-01-01T00:00:00.000Z matches the pattern, but the server rejects the item as invalid; the app clamps such a value to the epoch before sending",
+  "expect": "semantic",
+  "reason": "invalid",
+  "item": {
+    "opId": "00000000-0000-4000-8000-000000000117",
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": null,
+    "clientUpdatedAt": "1969-12-31T23:59:59.999Z",
+    "deleted": false
+  }
+}

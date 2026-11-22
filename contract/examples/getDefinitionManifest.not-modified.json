@@ -1,0 +1,21 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "getDefinitionManifest",
+  "summary": "The stored ETag is still current.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/definitions/manifest",
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en",
+      "If-None-Match": "\"m-6cb52fae6870bbcc\""
+    }
+  },
+  "response": {
+    "status": 304,
+    "headers": {
+      "ETag": "\"m-6cb52fae6870bbcc\""
+    }
+  }
+}

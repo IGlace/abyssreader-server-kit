@@ -1,0 +1,36 @@
+{
+  "name": "delete-older-stale",
+  "description": "a delete older than the row → stale, row kept",
+  "serverNow": "2026-10-10T15:00:00.000Z",
+  "stored": {
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T14:30:00.000Z",
+    "deleted": false
+  },
+  "incoming": {
+    "opId": "00000000-0000-4000-8000-000000000211",
+    "kind": "favorite",
+    "key": {
+      "mainMangaId": 1498
+    },
+    "data": null,
+    "clientUpdatedAt": "2026-10-10T14:00:00.000Z",
+    "deleted": true
+  },
+  "expected": {
+    "status": "stale",
+    "storedAfter": {
+      "kind": "favorite",
+      "key": {
+        "mainMangaId": 1498
+      },
+      "data": null,
+      "clientUpdatedAt": "2026-10-10T14:30:00.000Z",
+      "deleted": false
+    }
+  }
+}

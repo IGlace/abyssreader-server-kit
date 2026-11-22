@@ -1,0 +1,796 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abyssreader.com/schemas/source-definition/v1.schema.json",
+  "title": "AbyssReader source definition (schemaVersion 1)",
+  "description": "A resolved source definition: how to fetch popular/latest/search/details/chapters/pages for one manga source.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "lang",
+    "baseUrl",
+    "versionId",
+    "execution",
+    "capabilities",
+    "operations"
+  ],
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "description": "Engine contract major version; engines refuse other values."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 255,
+      "description": "== backend source.source_slug (varchar 255)"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "== backend source.source_name (varchar 255)"
+    },
+    "lang": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(-[A-Za-z]{2,4})?$"
+    },
+    "baseUrl": {
+      "type": "string",
+      "pattern": "^https?://[^/\\s]+$",
+      "maxLength": 255,
+      "description": "scheme + host, no trailing slash; == backend source.source_url (varchar 255)"
+    },
+    "hosts": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 253,
+        "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$",
+        "not": { "anyOf": [{ "pattern": "[^a-z0-9.-]" }, { "pattern": "\\.(local|localhost)$" }] }
+      },
+      "description": "Every host other than baseUrl's that the definition contacts: image CDNs, API hosts, redirect targets (part of the definition sandbox). The sandbox lets a definition reach only baseUrl's host plus these, every redirect hop included, over HTTPS. Bare lowercase public host names, matched exactly: no scheme, path, port, wildcard or IP address (the last label must start with a letter), and no localhost, `.localhost` or `.local`. The `not` also refuses any character outside `a-z0-9.-`, so a trailing line break that `$` lets through (`\\n` in Python and Java, and `\\u0085`, `\\u2028`, `\\u2029` in Java, which validates on the backend) fails in every validator alike. The resolver joins a family's hosts and its source's hosts (family first, duplicates dropped); it does not replace them like other arrays."
+    },
+    "versionId": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Bump when URLs change incompatibly (mirrors Source.sourceVersion)."
+    },
+    "definitionVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic per publish; set by the publisher."
+    },
+    "minAppVersion": {
+      "type": "string",
+      "pattern": "^[0-9]{1,9}\\.[0-9]{1,9}\\.[0-9]{1,9}$",
+      "not": { "pattern": "\\s" },
+      "description": "Oldest app version (x.y.z) that may run this definition. The app checks it against the signed content before storing; the server ignores it. ASCII digits, at most 9 per part, and no whitespace (the `not` rules out the trailing newline that `$` lets through in Python and Java), because the app treats any value it cannot read as no gate. Usually set on a family file; the resolver copies it into every member."
+    },
+    "family": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "params": {
+      "type": "object",
+      "description": "Site knobs referenced as {{params.*}}; already substituted in a resolved document but kept for provenance."
+    },
+    "execution": {
+      "enum": [
+        "client",
+        "server"
+      ]
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supportsLatest",
+        "supportsSearch",
+        "requiresJs",
+        "cloudflare"
+      ],
+      "properties": {
+        "supportsLatest": {
+          "type": "boolean"
+        },
+        "supportsSearch": {
+          "type": "boolean"
+        },
+        "requiresJs": {
+          "type": "boolean",
+          "description": "true when any step is `js`; engines without a JS runtime treat the source as server-executed."
+        },
+        "cloudflare": {
+          "type": "boolean"
+        },
+        "needsCookies": {
+          "type": "boolean"
+        },
+        "rateLimit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "permits",
+            "periodMs"
+          ],
+          "properties": {
+            "permits": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "periodMs": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "http": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "userAgent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "headers": {
+          "$ref": "#/$defs/stringMap"
+        },
+        "referer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cookies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "domain",
+              "name",
+              "value"
+            ],
+            "properties": {
+              "domain": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "urlRewrites": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from",
+              "to"
+            ],
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "headers": {
+          "$ref": "#/$defs/stringMap"
+        }
+      }
+    },
+    "chapterNumber": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strategy"
+          ],
+          "properties": {
+            "strategy": {
+              "const": "tachiyomi-recognition"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strategy",
+            "pattern",
+            "group"
+          ],
+          "properties": {
+            "strategy": {
+              "const": "regex"
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "group": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "dateFormats": {
+      "$ref": "#/$defs/stringList"
+    },
+    "relativeDates": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Aliases \u2192 canonical status; the engine normalises `manga.status` with it.",
+      "properties": {
+        "ongoing": {
+          "$ref": "#/$defs/stringList"
+        },
+        "completed": {
+          "$ref": "#/$defs/stringList"
+        },
+        "hiatus": {
+          "$ref": "#/$defs/stringList"
+        },
+        "cancelled": {
+          "$ref": "#/$defs/stringList"
+        },
+        "licensed": {
+          "$ref": "#/$defs/stringList"
+        },
+        "publishingFinished": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "popular",
+        "details",
+        "chapters",
+        "pages"
+      ],
+      "properties": {
+        "popular": {
+          "$ref": "#/$defs/operation"
+        },
+        "latest": {
+          "$ref": "#/$defs/operationOrNull"
+        },
+        "search": {
+          "$ref": "#/$defs/operationOrNull"
+        },
+        "details": {
+          "$ref": "#/$defs/operation"
+        },
+        "chapters": {
+          "$ref": "#/$defs/operation"
+        },
+        "pages": {
+          "$ref": "#/$defs/operation"
+        },
+        "imageUrl": {
+          "$ref": "#/$defs/operationOrNull"
+        }
+      }
+    },
+    "parseDateAliases": {
+      "$ref": "#/$defs/stringMap"
+    }
+  },
+  "$defs": {
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "template": {
+      "type": "string",
+      "description": "May reference {{baseUrl}}, {{page}} (also {{page-N}}, {{page+N}}, {{offset:N}}), {{query}} (also {{query:slug}} with '_' and {{query:slug-}} with '-'), {{now}} (epoch milliseconds), {{manga.url}}, {{chapter.url}}, {{params.*}}, {{ctx}}, {{prev.<field>}}, {{select:<css>|attr:<name>}}."
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "const": "empty"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "missing"
+          ],
+          "properties": {
+            "missing": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "url"
+      ],
+      "properties": {
+        "method": {
+          "enum": [
+            "GET",
+            "POST"
+          ]
+        },
+        "url": {
+          "$ref": "#/$defs/template"
+        },
+        "headers": {
+          "$ref": "#/$defs/stringMap"
+        },
+        "form": {
+          "$ref": "#/$defs/stringMap"
+        },
+        "body": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Raw POST body, used when `form` is empty. A template (rendered like `url` and `form` values); sent with no Content-Type unless `headers` sets one."
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "step": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/stepRef"
+        },
+        {
+          "$ref": "#/$defs/stepObject"
+        }
+      ]
+    },
+    "stepRef": {
+      "type": "string",
+      "pattern": "^\\$ref:#/",
+      "description": "JSON pointer to a step in the same resolved document."
+    },
+    "stepObject": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "select": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "css"
+          ],
+          "properties": {
+            "css": {
+              "type": "string",
+              "minLength": 1
+            },
+            "attr": {
+              "type": "string"
+            },
+            "text": {
+              "type": "boolean"
+            },
+            "abs": {
+              "type": "boolean"
+            },
+            "attrChain": {
+              "$ref": "#/$defs/stringList"
+            },
+            "first": {
+              "type": "boolean"
+            }
+          }
+        },
+        "map": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fields"
+          ],
+          "properties": {
+            "fields": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "$ref": "#/$defs/steps"
+              }
+            }
+          }
+        },
+        "regex": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pattern",
+            "group"
+          ],
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "group": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "flags": {
+              "type": "string",
+              "pattern": "^[imsx]*$"
+            }
+          }
+        },
+        "jsonPath": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^\\$"
+            }
+          }
+        },
+        "template": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value"
+          ],
+          "properties": {
+            "value": {
+              "$ref": "#/$defs/template"
+            }
+          }
+        },
+        "paginate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "hasNext"
+          ],
+          "properties": {
+            "hasNext": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "css"
+                  ],
+                  "properties": {
+                    "css": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "jsonPath"
+                  ],
+                  "properties": {
+                    "jsonPath": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "pageCountFrom"
+                  ],
+                  "properties": {
+                    "pageCountFrom": {
+                      "$ref": "#/$defs/steps"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "fallbackRequest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "when",
+            "request",
+            "steps"
+          ],
+          "properties": {
+            "when": {
+              "$ref": "#/$defs/condition"
+            },
+            "request": {
+              "$ref": "#/$defs/request"
+            },
+            "steps": {
+              "$ref": "#/$defs/steps"
+            }
+          }
+        },
+        "decrypt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm",
+            "passphrase",
+            "payload"
+          ],
+          "properties": {
+            "algorithm": {
+              "const": "aes-cbc-openssl-salted"
+            },
+            "passphrase": {
+              "$ref": "#/$defs/steps"
+            },
+            "payload": {
+              "$ref": "#/$defs/steps"
+            }
+          }
+        },
+        "base64": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        },
+        "split": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "separator"
+          ],
+          "properties": {
+            "separator": {
+              "type": "string",
+              "minLength": 1
+            },
+            "trim": {
+              "type": "boolean"
+            },
+            "dropEmpty": {
+              "type": "boolean"
+            }
+          }
+        },
+        "dedupeBy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field"
+          ],
+          "properties": {
+            "field": {
+              "type": "string"
+            }
+          }
+        },
+        "mapValue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "table"
+          ],
+          "properties": {
+            "table": {
+              "$ref": "#/$defs/stringMap"
+            },
+            "default": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "parseDate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        },
+        "chapterNumber": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        },
+        "filter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "where"
+          ],
+          "properties": {
+            "where": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "field"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "matches": {
+                  "type": "string"
+                },
+                "notMatches": {
+                  "type": "string"
+                },
+                "nonEmpty": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "js": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code"
+          ],
+          "description": "Sandboxed transform ctx \u2192 value; no network/DOM/timers/host (spec \u00a74.3, D3).",
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          }
+        },
+        "stripTags": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "strip HTML markup from a text value, keeping the text (jsoup-equivalent .text() on a value that never passes through a document, e.g. iken's postContent HTML fragment).",
+          "properties": {}
+        },
+        "replace": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pattern",
+            "with"
+          ],
+          "description": "replace every match of `pattern` in the text value. In `with`, `$0`..`$9` is that group (empty when it did not take part) and `$$` a literal `$`; nothing else is special. Both engines implement this substitution themselves (Java's and Dart's own replacement syntaxes differ), pinned by parity/replace-cases.json.",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "minLength": 1
+            },
+            "with": {
+              "type": "string"
+            },
+            "flags": {
+              "type": "string",
+              "pattern": "^[ims]*$"
+            }
+          }
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request",
+        "steps",
+        "output"
+      ],
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "steps": {
+          "$ref": "#/$defs/steps"
+        },
+        "output": {
+          "enum": [
+            "mangaList",
+            "manga",
+            "chapterList",
+            "pageList",
+            "imageUrl"
+          ]
+        }
+      }
+    },
+    "operationOrNull": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/operation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

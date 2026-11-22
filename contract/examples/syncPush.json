@@ -1,0 +1,115 @@
+{
+  "licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "notice": "Required Notice: Copyright 2026 Abyss Reader (https://abyssreader.com)\nRequired Notice: The server kit is licensed for noncommercial use only, under the PolyForm Noncommercial License 1.0.0 (LICENSE). It is never relicensed, and no commercial licence is offered to anyone. See LICENSING.md.",
+  "operationId": "syncPush",
+  "summary": "Pushing four kinds; one item names a title the server does not have.",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/sync/push",
+    "headers": {
+      "User-Agent": "AbyssReader/1.0.0 (android)",
+      "Accept-Language": "en",
+      "Authorization": "Bearer eyJhbGciOiJIUzUxMiJ9.opaque-session-token.example"
+    },
+    "body": {
+      "items": [
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000001",
+          "kind": "favorite",
+          "key": {
+            "mainMangaId": 42
+          },
+          "data": null,
+          "clientUpdatedAt": "2026-11-18T14:00:00.000Z",
+          "deleted": false
+        },
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000002",
+          "kind": "rating",
+          "key": {
+            "mainMangaId": 42
+          },
+          "data": {
+            "opinion": "up"
+          },
+          "clientUpdatedAt": "2026-11-18T14:00:01.000Z",
+          "deleted": false
+        },
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000003",
+          "kind": "position",
+          "key": {
+            "mainMangaId": 42
+          },
+          "data": {
+            "sourceSlug": "lantern",
+            "chapterUrl": "/chapters/7003",
+            "chapterNumber": 3,
+            "chapterName": "The lamp answers",
+            "pageIndex": 4
+          },
+          "clientUpdatedAt": "2026-11-18T14:00:02.000Z",
+          "deleted": false
+        },
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000004",
+          "kind": "chapterMark",
+          "key": {
+            "mainMangaId": 42,
+            "sourceSlug": "lantern",
+            "chapterUrl": "/chapters/7002"
+          },
+          "data": {
+            "chapterNumber": 2,
+            "chapterName": "Salt on the glass",
+            "read": true,
+            "lastPageRead": 17,
+            "totalPages": 17,
+            "bookmarked": false
+          },
+          "clientUpdatedAt": "2026-11-18T14:00:03.000Z",
+          "deleted": false
+        },
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000005",
+          "kind": "planning",
+          "key": {
+            "mainMangaId": 99999
+          },
+          "data": null,
+          "clientUpdatedAt": "2026-11-18T14:00:04.000Z",
+          "deleted": false
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "results": [
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000001",
+          "status": "applied"
+        },
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000002",
+          "status": "applied"
+        },
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000003",
+          "status": "applied"
+        },
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000004",
+          "status": "applied"
+        },
+        {
+          "opId": "6f1c2a4e-0001-4000-8000-000000000005",
+          "status": "rejected",
+          "reason": "unknown_title"
+        }
+      ],
+      "cursor": "d.18342"
+    }
+  }
+}
