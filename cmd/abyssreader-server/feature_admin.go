@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -14,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/IGlace/abyssreader-server-kit/internal/accounts"
+	"github.com/IGlace/abyssreader-server-kit/internal/community"
 	"github.com/IGlace/abyssreader-server-kit/internal/config"
 	"github.com/IGlace/abyssreader-server-kit/internal/features"
 	"github.com/IGlace/abyssreader-server-kit/internal/reports"
@@ -21,15 +24,23 @@ import (
 
 const featureUsage = `  abyssreader-server admin reports [--page N] [--limit N] [--title REF|ID]
                                                        list reports, open first (default 50, max 100)
-  abyssreader-server admin reports close ID            close one open report
+  abyssreader-server admin reports close ID            close one open report (content reports use content:ID)
   abyssreader-server admin reports close-title ID      close every open report for a title
   abyssreader-server admin reports close --account ID  close every open report by an account
+  abyssreader-server admin remove comment|collection ID
+                                                       remove content and its replies or comments
+  abyssreader-server admin suspend ACCOUNT [--reason TEXT]
+                                                       end sessions and suspend sign-in (account ID or email)
+  abyssreader-server admin unsuspend ACCOUNT          allow sign-in again (account ID or email)
   abyssreader-server admin purge FEATURE [--yes]       delete a switched-off feature's data
 `
 
 func featureAdmin(ctx context.Context, args []string, in io.Reader, out, stderr io.Writer, getenv func(string) string) int {
-	if args[0] == "purge" {
+	switch args[0] {
+	case "purge":
 		return adminPurge(ctx, args[1:], in, out, stderr, getenv)
+	case "remove", "suspend", "unsuspend":
+		return moderate(ctx, args, out, stderr, getenv)
 	}
 	if len(args) == 1 || strings.HasPrefix(args[1], "-") {
 		return listReports(ctx, args[1:], out, stderr, getenv)
@@ -46,7 +57,14 @@ func featureAdmin(ctx context.Context, args []string, in io.Reader, out, stderr 
 		fmt.Fprint(stderr, featureUsage)
 		return 2
 	}
-	id, err := strconv.ParseInt(args[len(args)-1], 10, 64)
+	rawID := args[len(args)-1]
+	if target == reports.SingleReport {
+		if id, ok := strings.CutPrefix(rawID, "content:"); ok {
+			rawID = id
+			target = reports.SingleContentReport
+		}
+	}
+	id, err := strconv.ParseInt(rawID, 10, 64)
 	if err != nil || id < 1 {
 		fmt.Fprint(stderr, featureUsage)
 		return 2
@@ -57,8 +75,8 @@ func featureAdmin(ctx context.Context, args []string, in io.Reader, out, stderr 
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		if n == 0 && target == reports.SingleReport {
-			fmt.Fprintf(stderr, "No open report matched ID %d.\n", id)
+		if n == 0 && (target == reports.SingleReport || target == reports.SingleContentReport) {
+			fmt.Fprintf(stderr, "No open report matched ID %s.\n", args[len(args)-1])
 			return 1
 		}
 		fmt.Fprintf(out, "Closed reports=%d\n", n)
@@ -93,7 +111,7 @@ func listReports(ctx context.Context, args []string, out, stderr io.Writer, gete
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		fmt.Fprintln(out, "ID  State  Title ID and name  Reason  Details  Reporter ID and email  Date (UTC)")
+		fmt.Fprintln(out, "ID  State  Target type, ID and name or excerpt  Reason  Details  Reporter ID and email  Date (UTC)")
 		shownOpen := 0
 		for _, r := range page.Items {
 			state := "closed"
@@ -101,7 +119,11 @@ func listReports(ctx context.Context, args []string, out, stderr io.Writer, gete
 				state = "open"
 				shownOpen++
 			}
-			fmt.Fprintf(out, "%d  %s  %d %q  %s  %q  %d %q  %s\n", r.ID, state, r.TitleID, terminalText(r.Title), terminalText(r.Reason), terminalText(r.Details), r.UserID, terminalText(r.Email), time.UnixMilli(r.CreatedAt).UTC().Format(time.RFC3339))
+			id := strconv.FormatInt(r.ID, 10)
+			if r.Content {
+				id = "content:" + id
+			}
+			fmt.Fprintf(out, "%s  %s  %s %d %q  %s  %q  %d %q  %s\n", id, state, r.TargetType, r.TargetID, terminalText(r.Title), terminalText(r.Reason), terminalText(r.Details), r.UserID, terminalText(r.Email), time.UnixMilli(r.CreatedAt).UTC().Format(time.RFC3339))
 		}
 		fmt.Fprintf(out, "%d of %d open reports on this page.\n", shownOpen, page.Open)
 		if int64(q.Page)*int64(q.Limit) < page.Total {
@@ -111,6 +133,59 @@ func listReports(ctx context.Context, args []string, out, stderr io.Writer, gete
 			}
 			fmt.Fprintln(out)
 		}
+		return 0
+	})
+}
+
+func moderate(ctx context.Context, args []string, out, stderr io.Writer, getenv func(string) string) int {
+	badUsage := func() int {
+		fmt.Fprint(stderr, featureUsage)
+		return 2
+	}
+	if len(args) < 2 {
+		return badUsage()
+	}
+	if args[0] == "remove" {
+		if len(args) != 3 || (args[1] != "comment" && args[1] != "collection") {
+			return badUsage()
+		}
+		id, err := strconv.ParseInt(args[2], 10, 64)
+		if err != nil || id < 1 {
+			return badUsage()
+		}
+		return withCatalogLock(ctx, stderr, getenv, func(db *sql.DB) int {
+			if err := community.Remove(ctx, db, args[1], id); err != nil {
+				fmt.Fprintln(stderr, err)
+				return 1
+			}
+			fmt.Fprintf(out, "Removed %s %d.\n", args[1], id)
+			return 0
+		})
+	}
+	account, reason := args[1], ""
+	switch {
+	case len(args) == 2:
+	case args[0] == "suspend" && len(args) == 4 && args[2] == "--reason":
+		reason = args[3]
+	default:
+		return badUsage()
+	}
+	return withDatabase(ctx, stderr, getenv, func(db *sql.DB) int {
+		svc := accounts.New(db, 0)
+		var err error
+		if args[0] == "suspend" {
+			err = svc.Suspend(ctx, account, reason)
+		} else {
+			err = svc.Unsuspend(ctx, account)
+		}
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			if errors.Is(err, accounts.ErrSuspensionReason) {
+				return 2
+			}
+			return 1
+		}
+		fmt.Fprintln(out, "Account moderation updated.")
 		return 0
 	})
 }

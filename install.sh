@@ -14,7 +14,8 @@
 #   sudo sh install.sh upgrade [VERSION]       snapshot, upgrade and verify
 #   sudo sh install.sh upgrade --check         compare the installed and latest kit
 #   sudo sh install.sh rollback                restore the pre-upgrade image and data
-#   sudo sh install.sh restore [--yes] FILE    restore a verified server archive
+#   sudo sh install.sh restore [--yes] [--allow-definition-rollback] FILE
+#                                          restore a verified server archive
 #   sudo sh install.sh recover [--abandon]     recover or inspect an orphaned data volume
 #   sudo sh install.sh uninstall               remove the installation
 #
@@ -23,7 +24,8 @@
 #   its data into the Docker volume abyssreader-server_data. Both stay when you run this again.
 # - The questions are asked by the server image itself (abyssreader-server setup), so they and
 #   their checks are the same everywhere; this script only moves files and starts containers.
-# - This script contacts: ghcr.io (pinned release images), GitHub's HTTPS release API on upgrade --check and, in the Caddy mode, Docker Hub
+# - This script contacts: ghcr.io (pinned release images), GitHub's HTTPS release API and the app
+#   support schedule on upgrade --check and, in the Caddy mode, Docker Hub
 #   (the Caddy image) and Let's Encrypt (Caddy's certificate, by Caddy). It downloads and runs
 #   Docker's own install script (https://get.docker.com) only when Docker is missing and you
 #   say yes. The server itself contacts no one, except the error-reporting DSN if you set one.
@@ -43,6 +45,7 @@ MIN_COMPOSE=2.24.0
 
 INSTALL_DIR=/opt/abyssreader-server
 WAIT_SECONDS=120
+CUSTOM_IMAGE=""
 TEST_MODE=""
 # BEGIN TEST HOOKS. For the kit's own tests only (scripts/test-install.sh): another folder, a
 # shorter wait, and running without root on a machine that is not Linux. A release copy has
@@ -83,7 +86,7 @@ Usage:
   sudo sh install.sh configure [--answers FILE]   change its settings, then restart it
   sudo sh install.sh upgrade [X.Y.Z | --check]
   sudo sh install.sh rollback
-  sudo sh install.sh restore [--yes] BACKUP.tar
+  sudo sh install.sh restore [--yes] [--allow-definition-rollback] BACKUP.tar
   sudo sh install.sh recover [--abandon]
   sudo sh install.sh uninstall
   sh install.sh help
@@ -167,6 +170,10 @@ ask_yes_no() {
 	if [ ! -t 0 ] || [ -n "${ANSWERS:-}" ]; then
 		return 1
 	fi
+	prompt_yes_no "$1"
+}
+
+prompt_yes_no() {
 	printf '%s [y/N]: ' "$1"
 	read -r ask_reply || return 1
 	case "$ask_reply" in
@@ -200,12 +207,15 @@ own() {
 	chmod "$2" "$1"
 }
 
-check_system() {
+check_root() {
 	if [ -z "$TEST_MODE" ]; then
-		[ "$(uname -s)" = Linux ] || die "this installer is for Linux machines (a VPS with Docker)."
 		[ "$(id -u)" = 0 ] || die "run it as root: sudo sh install.sh"
+		[ "$(uname -s)" = Linux ] || die "this installer is for Linux machines (a VPS with Docker)."
 	fi
-	if [ "$KIT_VERSION" = unreleased ] || { [ "$KIT_IMAGE_DIGEST" != local-test ] && ! valid_digest "$KIT_IMAGE_DIGEST"; }; then
+}
+
+check_release_image() {
+	if [ -z "$CUSTOM_IMAGE" ] && { [ "$KIT_VERSION" = unreleased ] || { [ "$KIT_IMAGE_DIGEST" != local-test ] && ! valid_digest "$KIT_IMAGE_DIGEST"; }; }; then
 		die "this copy of install.sh is not from a kit release (version or image digest is missing).
 Download install.sh from the kit's release page: it installs exactly that release."
 	fi
@@ -347,6 +357,40 @@ host_addresses() {
 		hostname -I
 	elif command -v ip >/dev/null 2>&1; then
 		ip -o addr show | awk '{print $4}'
+	fi
+}
+
+# Read the dedicated image setting without evaluating the answers file as shell code.
+# This setting accepts a literal pinned ref, optionally surrounded by quotes.
+read_custom_image() {
+	[ -f "$1" ] || return 0
+	LC_ALL=C awk '
+		/^[[:space:]]*KIT_IMAGE[[:space:]]*=/ {
+			if (seen++) exit 1
+			sub(/^[^=]*=[[:space:]]*/, "")
+			sub(/[[:space:]]*$/, "")
+			if (substr($0,1,1) == "\"" && substr($0,length,1) == "\"") $0 = substr($0,2,length-2)
+			if (substr($0,1,1) == "\047" && substr($0,length,1) == "\047") $0 = substr($0,2,length-2)
+			if ($0 !~ /^[a-z0-9][a-zA-Z0-9._:\/-]*(:[a-zA-Z0-9_][a-zA-Z0-9_.-]*|@sha256:[a-f0-9]+)$/ ||
+			    length($0) > 326 || $0 ~ /:latest$/ || ($0 ~ /@/ && length($0)-index($0,"@") != 71)) exit 1
+			print
+		}
+	' "$1"
+}
+
+select_custom_image() {
+	CUSTOM_IMAGE=$(read_custom_image "$INSTALL_DIR/.env") || die "invalid KIT_IMAGE in the installed .env."
+	requested=$(read_custom_image "$ANSWERS") || die "KIT_IMAGE needs one literal image reference pinned by tag or SHA-256 digest."
+	if [ -f "$INSTALL_DIR/.env" ] && [ -n "$requested" ] && [ "$requested" != "$CUSTOM_IMAGE" ]; then
+		die "KIT_IMAGE selects the image on a fresh install. See the fork-and-own-image guide to change an installed image."
+	fi
+	CUSTOM_IMAGE=${CUSTOM_IMAGE:-$requested}
+	if [ -n "$CUSTOM_IMAGE" ] && [ "$CUSTOM_IMAGE" != "$IMAGE" ]; then
+		warn "Using custom kit image $CUSTOM_IMAGE. Support covers official images only."
+		if [ -t 0 ] && ! prompt_yes_no "Continue with this custom image"; then
+			die "Custom image declined. Nothing was changed."
+		fi
+		IMAGE=$CUSTOM_IMAGE
 	fi
 }
 
@@ -567,7 +611,6 @@ next_steps() {
 }
 
 check_answers_file() {
-	case "$ANSWERS" in -*) ANSWERS="./$ANSWERS" ;; esac
 	[ -f "$ANSWERS" ] || die "no answers file at $ANSWERS"
 	if [ -n "$(find "$ANSWERS" -prune \( -perm -004 -o -perm -040 \) 2>/dev/null)" ]; then
 		# A DSN, or an access key other than generate/new/empty, is a secret others could read.
@@ -691,7 +734,15 @@ release_order() {
 # text too. Tokenize strings with escapes and keep container depth while scanning.
 release_check() {
 	current=$(installed_image) || die "cannot read the installed image."
-	installed_tag "$current"
+	case "$current" in
+	'' | -* | *[!a-zA-Z0-9._/:@-]*) die "cannot identify the installed image." ;;
+	"$KIT_IMAGE_REPO":*) installed_tag "$current" ;;
+	*)
+		say "Installed kit uses a custom image. Check your build for updates."
+		support_check "$current"
+		return ;;
+	esac
+	support_check "$current"
 	release_json=$(curl -q -fsS --proto '=https' --max-time 20 https://api.github.com/repos/IGlace/abyssreader-server-kit/releases/latest) ||
 		die "GitHub's release API is unavailable. The kit repository must be public and have a published release. Check that this machine can reach GitHub."
 	latest=$(printf '%s\n' "$release_json" | awk '
@@ -721,6 +772,21 @@ release_check() {
 	0) say "The installed kit is current." ;;
 	-1) say "The installed kit is newer than the latest release." ;;
 	esac
+}
+
+support_check() {
+	if ! compat_json=$(curl -q -fsS --proto '=https' --max-time 20 --max-filesize 65536 \
+		https://abyssreader.com/app/compat.json); then
+		warn "Could not read the live app support schedule."
+		return
+	fi
+	# Use the installed binary in an isolated, disposable container so the check
+	# works even when the service is stopped. No server env or data is mounted.
+	if ! printf '%s\n' "$compat_json" |
+		docker run --rm -i --pull never --network none --read-only --cap-drop ALL --tmpfs /data \
+			"$1" support-schedule --stdin 2>/dev/null; then
+		warn "Could not interpret the live schedule with the installed image. See https://abyssreader.com/app/compat.json."
+	fi
 }
 
 installed_image() {
@@ -775,7 +841,12 @@ operation_init() {
 	require_clear_host
 	[ -s "$STATE_DIR/install.info" ] && [ -f "$INSTALL_DIR/.env" ] || die "no installed server."
 	CURRENT_IMAGE=$(installed_image)
-	installed_tag "$CURRENT_IMAGE"
+	if [ -n "$CUSTOM_IMAGE" ]; then
+		[ "$CURRENT_IMAGE" = "$CUSTOM_IMAGE" ] || die "the installed server image differs from KIT_IMAGE."
+		[ "$COMMAND" != upgrade ] || die "upgrade a custom image using the fork-and-own-image guide."
+	else
+		installed_tag "$CURRENT_IMAGE"
+	fi
 	if [ "$COMMAND" = upgrade ]; then
 		case "$(release_order "$target_tag" "$current_tag")" in
 		-1) die "Refusing to downgrade $current_tag to $target_tag. Use install.sh rollback." ;;
@@ -1098,11 +1169,14 @@ do_upgrade() {
 }
 
 preview_restore() {
-	case "$1" in /data/backups/*/backup.json)
-		gen=${1#/data/backups/}
-		helper preview-generation "${gen%/backup.json}" "$max_schema" </dev/null
+	backup_source=$1
+	shift
+	if [ -n "$ALLOW_DEFINITION_ROLLBACK" ]; then set -- --allow-definition-rollback; fi
+	case "$backup_source" in /data/backups/*/backup.json)
+		gen=${backup_source#/data/backups/}
+		helper preview-generation "${gen%/backup.json}" "$max_schema" "$@" </dev/null
 		;;
-	*) helper preview "$max_schema" <"$1" ;;
+	*) helper preview "$max_schema" "$@" <"$backup_source" ;;
 	esac
 }
 
@@ -1111,6 +1185,9 @@ do_restore() {
 	PREVIEW=$(preview_restore "$1")
 	helper describe-preview "$PREVIEW" </dev/null
 	say "Current writes made since this snapshot will be replaced."
+	if [ -n "$ALLOW_DEFINITION_ROLLBACK" ]; then
+		say "The live signing key stays in place. If the archive has a different signing state, republish definitions at versions above the prior floors."
+	fi
 	say "If a live image is missing or cannot be recovered, its path will be reported. The installer will keep an incomplete pre-restore snapshot and proceed with the confirmed restore."
 	say "If the live database is damaged, a raw, unverified copy will be kept for manual salvage."
 	if [ -z "$ASSUME_YES" ]; then
@@ -1320,6 +1397,7 @@ do_uninstall() {
 COMMAND=install
 ANSWERS=""
 ASSUME_YES=""
+ALLOW_DEFINITION_ROLLBACK=""
 case "${1:-}" in
 upgrade | rollback | restore | uninstall | recover)
 	COMMAND=$1
@@ -1335,23 +1413,28 @@ upgrade | rollback | restore | uninstall | recover)
 		if [ "$#" = 0 ] && [ "$target_tag" = 0.0.0-ci ]; then :; else valid_tag "$target_tag" || die "specify an exact release like 1.0.0 or 1.0.0-rc.1."; fi
 		;;
 	restore)
-		if [ "${1:-}" = --yes ]; then
-			ASSUME_YES=1
-			shift
-		fi
-		if [ "$#" = 2 ] && [ "$2" = --yes ]; then
-			ASSUME_YES=1
-			set -- "$1"
-		fi
-		[ "$#" = 1 ] || die "restore [--yes] needs a kit backup archive."
-		archive=$1
+		archive=""
+		for arg do
+			case "$arg" in
+			--yes) ASSUME_YES=1 ;;
+			--allow-definition-rollback) ALLOW_DEFINITION_ROLLBACK=1 ;;
+			--*) die "unknown restore option: $arg" ;;
+			*)
+				[ -z "$archive" ] || die "restore needs one kit backup archive."
+				archive=$arg
+				;;
+			esac
+		done
+		[ -n "$archive" ] || die "restore needs a kit backup archive."
 		;;
 	recover)
 		if [ "$#" = 1 ] && [ "$1" = --abandon ]; then ABANDON=yes; elif [ "$#" != 0 ]; then die "use recover [--abandon]."; fi
 		;;
 	*) [ "$#" = 0 ] || die "$COMMAND takes no arguments." ;;
 	esac
-	check_system
+	check_root
+	select_custom_image
+	check_release_image
 	command -v docker >/dev/null || die "Docker must be installed."
 	check_docker
 	[ "$COMMAND" = recover ] || [ -f "$STATE_DIR/install.info" ] || die "no installed server."
@@ -1421,7 +1504,10 @@ while [ $# -gt 0 ]; do
 	shift
 done
 
-check_system
+check_root
+case "$ANSWERS" in '' | /* | ./*) ;; *) ANSWERS="./$ANSWERS" ;; esac
+select_custom_image
+check_release_image
 require_clear_host
 if [ -n "$ANSWERS" ]; then
 	check_answers_file

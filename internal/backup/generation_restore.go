@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/IGlace/abyssreader-server-kit/internal/covers"
+	"github.com/IGlace/abyssreader-server-kit/internal/definitions"
 	"github.com/IGlace/abyssreader-server-kit/internal/store"
 )
 
@@ -62,10 +63,10 @@ func writeArchive(ctx context.Context, dir string, out io.Writer) error {
 
 const transaction = ".kit-restore"
 
-var liveFiles = []string{Database, Database + "-wal", Database + "-shm", Database + "-journal", "covers", "pages"}
+var liveFiles = []string{Database, Database + "-wal", Database + "-shm", Database + "-journal", "covers", "pages", definitions.KeyFile}
 
 func validMember(name string) bool {
-	if isRawDBFile(name) || name == manifestFile {
+	if isRawDBFile(name) || name == manifestFile || name == keyBackupMember {
 		return true
 	}
 	folder, image, ok := strings.Cut(name, "/")
@@ -146,6 +147,14 @@ func extractArchive(ctx context.Context, next string, in io.Reader, budget int64
 		if !validMember(h.Name) || h.Typeflag != tar.TypeReg {
 			return errors.New("invalid kit archive member")
 		}
+		if h.Name == keyBackupMember {
+			if h.Size > 4096 {
+				return errors.New("definition signing key archive member exceeds its size limit")
+			}
+			if err := definitions.EnsureSecretsFolder(next); err != nil {
+				return err
+			}
+		}
 		// Allow metadata and filesystem allocation overhead even for tiny images.
 		if budget < 4096 || h.Size > budget-4096 {
 			return errors.New("insufficient free space to stage kit archive")
@@ -177,6 +186,9 @@ func stage(ctx context.Context, data string, maxSchema int64, pin string, popula
 		}
 	}
 	if err = populate(next); err != nil {
+		return err
+	}
+	if err = syncSecrets(next); err != nil {
 		return err
 	}
 	if err = Verify(ctx, next); err != nil {
@@ -249,15 +261,39 @@ func ResumeApply(data string) error {
 	if err != nil {
 		return err
 	}
-	if !started {
-		if err = Verify(context.Background(), next); err != nil {
+	ctx := context.Background()
+	var plan definitionRestorePlan
+	if started {
+		plan, err = loadDefinitionRestorePlan(tx, next)
+	} else {
+		if err = Verify(ctx, next); err != nil {
 			return err
 		}
-		if err = mark(tx, "applying"); err != nil {
+		allow, checkErr := exists(filepath.Join(tx, definitionRestoreOverride))
+		if checkErr != nil {
+			return checkErr
+		}
+		plan, err = planDefinitionRestore(ctx, data, next, allow)
+		if err == nil {
+			err = saveDefinitionRestorePlan(tx, plan)
+		}
+		if err == nil {
+			err = mark(tx, "applying")
+		}
+	}
+	if err != nil {
+		return err
+	}
+	withKey := plan.InstallKey
+	if withKey {
+		if err := definitions.EnsureSecretsFolder(data); err != nil {
 			return err
 		}
 	}
 	for _, name := range liveFiles {
+		if name == definitions.KeyFile && !withKey {
+			continue
+		}
 		saved := filepath.Join(old, name)
 		present, err := exists(saved)
 		if err != nil {
@@ -273,7 +309,7 @@ func ResumeApply(data string) error {
 		if absent {
 			continue
 		}
-		live := filepath.Join(data, name)
+		live := restoreLivePath(data, name)
 		hasLive, err := exists(live)
 		if err != nil {
 			return err
@@ -295,13 +331,17 @@ func ResumeApply(data string) error {
 	if err = syncPath(data); err != nil {
 		return err
 	}
-	for _, name := range []string{Database, "covers", "pages"} {
-		from := filepath.Join(next, name)
+	names := []string{Database, "covers", "pages"}
+	if withKey {
+		names = append(names, definitions.KeyFile)
+	}
+	for _, name := range names {
+		from := restoreLivePath(next, name)
 		left, err := exists(from)
 		if err != nil {
 			return err
 		}
-		live := filepath.Join(data, name)
+		live := restoreLivePath(data, name)
 		if left {
 			if err = moveDurably(from, live); err != nil {
 				return err
@@ -315,6 +355,18 @@ func ResumeApply(data string) error {
 	}
 	if err = syncPath(next); err != nil {
 		return err
+	}
+	if withKey {
+		// A resumed rename may skip moveDurably after its first directory
+		// flush failed. Flush both nested parents before marking the swap done.
+		if err = errors.Join(syncSecrets(data), syncSecrets(next)); err != nil {
+			return err
+		}
+	}
+	if plan.ClearOffers {
+		if err = clearArchivedDefinitions(ctx, data, plan.LiveKey); err != nil {
+			return err
+		}
 	}
 	return mark(tx, "applied")
 }
@@ -330,7 +382,7 @@ func Undo(data string) error {
 		return err
 	}
 	for _, name := range liveFiles {
-		live := filepath.Join(data, name)
+		live := restoreLivePath(data, name)
 		saved := filepath.Join(old, name)
 		present, err := exists(saved)
 		if err != nil {
@@ -362,6 +414,9 @@ func Undo(data string) error {
 		return err
 	}
 	if err = syncPath(old); err != nil {
+		return err
+	}
+	if err = syncSecrets(data); err != nil {
 		return err
 	}
 	return mark(tx, "undone")

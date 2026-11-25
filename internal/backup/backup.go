@@ -32,17 +32,18 @@ const format = "abyssreader-server-kit/1"
 const layout = "kit-20060102T150405.000000000Z"
 
 type manifest struct {
-	Format         string     `json:"format"`
-	Created        time.Time  `json:"created"`
-	DatabaseSHA    string     `json:"databaseSha256"`
-	Images         int        `json:"images"`
-	KitVersion     string     `json:"kitVersion,omitempty"`
-	SchemaVersion  *int64     `json:"schemaVersion,omitempty"`
-	GenerationTime *time.Time `json:"generationTime,omitempty"`
-	Raw            bool       `json:"raw,omitempty"`
-	RawSHA         string     `json:"rawSha256,omitempty"`
-	Incomplete     bool       `json:"incomplete,omitempty"`
-	Missing        []string   `json:"missing,omitempty"`
+	Format           string     `json:"format"`
+	Created          time.Time  `json:"created"`
+	DatabaseSHA      string     `json:"databaseSha256"`
+	DefinitionKeySHA string     `json:"definitionKeySha256,omitempty"`
+	Images           int        `json:"images"`
+	KitVersion       string     `json:"kitVersion,omitempty"`
+	SchemaVersion    *int64     `json:"schemaVersion,omitempty"`
+	GenerationTime   *time.Time `json:"generationTime,omitempty"`
+	Raw              bool       `json:"raw,omitempty"`
+	RawSHA           string     `json:"rawSha256,omitempty"`
+	Incomplete       bool       `json:"incomplete,omitempty"`
+	Missing          []string   `json:"missing,omitempty"`
 }
 
 func generation(t time.Time) string { return t.UTC().Format(layout) }
@@ -298,7 +299,11 @@ func create(ctx context.Context, data string, db *sql.DB, keep int, now time.Tim
 	if err != nil {
 		return "", err
 	}
-	m := manifest{Format: format, Created: created, DatabaseSHA: sha, Images: len(images), KitVersion: kitVersion, SchemaVersion: &schema, Incomplete: len(missing) > 0, Missing: missing}
+	keySHA, err := copyDefinitionKey(data, tmp)
+	if err != nil {
+		return "", err
+	}
+	m := manifest{Format: format, Created: created, DatabaseSHA: sha, DefinitionKeySHA: keySHA, Images: len(images), KitVersion: kitVersion, SchemaVersion: &schema, Incomplete: len(missing) > 0, Missing: missing}
 	if !now.Equal(created) {
 		stamp := now.UTC()
 		m.GenerationTime = &stamp
@@ -546,6 +551,10 @@ func verify(ctx context.Context, dir string, mode verification, checks imageChec
 		}
 		delete(want, rel)
 	}
+	if m.DefinitionKeySHA != "" {
+		want["secrets"] = true
+		want[keyBackupMember] = true
+	}
 	err = filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -561,7 +570,7 @@ func verify(ctx context.Context, dir string, mode verification, checks imageChec
 			return fmt.Errorf("unexpected backup entry %s", rel)
 		}
 		delete(want, rel)
-		if rel == "covers" || rel == "pages" {
+		if rel == "covers" || rel == "pages" || rel == "secrets" {
 			if !entry.IsDir() {
 				return fmt.Errorf("invalid image directory %s", rel)
 			}
@@ -570,7 +579,18 @@ func verify(ctx context.Context, dir string, mode verification, checks imageChec
 		if !entry.Type().IsRegular() {
 			return fmt.Errorf("invalid backup entry %s", rel)
 		}
-		if filepath.Dir(rel) != "." {
+		if rel == keyBackupMember {
+			if _, err := keyBackupInfo(dir); err != nil {
+				return err
+			}
+			hash, err := digest(path)
+			if err != nil {
+				return err
+			}
+			if hash != m.DefinitionKeySHA {
+				return errors.New("definition signing key checksum mismatch")
+			}
+		} else if filepath.Dir(rel) != "." {
 			sha, err := checks.checksum(path)
 			if err != nil {
 				return err
@@ -595,7 +615,11 @@ func verifyTables(ctx context.Context, db *sql.DB, schema int64) error {
  WITH required(name, kind, since) AS (VALUES
  ('users','table',1), ('sessions','table',1), ('titles','table',3), ('page_images','table',4),
  ('sync_records','table',5), ('title_reports','table',6), ('sync_records_user_title','index',7), ('backup_hosted_identity','table',8),
- ('sync_applied_operations','table',11))
+ ('sync_applied_operations','table',11),
+ ('account_suspensions','table',12), ('collections','table',12), ('collection_titles','table',12),
+ ('comments','table',12), ('comment_votes','table',12), ('collection_votes','table',12), ('content_reports','table',12),
+ ('definition_key','table',13),
+ ('operator_definitions','table',13), ('definition_health','table',13))
  SELECT count(*) FROM required WHERE since <= ? AND NOT EXISTS
  (SELECT 1 FROM sqlite_schema WHERE sqlite_schema.name=required.name AND sqlite_schema.type=required.kind)`, schema).Scan(&missingTables); err != nil {
 		return err

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)", "Read(**/.env)", "Read(**/.env.*)",
+      "Read(**/*.env)", "Read(**/*.key)", "Read(**/*.pem)", "Read(**/private-offline.key)",
+      "Read(./secrets/**)", "Read(**/secrets/**)", "Read(**/definition-signing-key)",
+      "Edit(./.env)", "Edit(**/.env)", "Edit(**/.env.*)",
+      "Edit(**/*.env)", "Edit(**/*.key)", "Edit(**/*.pem)", "Edit(**/private-offline.key)",
+      "Edit(./secrets/**)", "Edit(**/secrets/**)", "Edit(**/definition-signing-key)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/keep-secrets-on-server.py\" || exit 2"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -9,7 +9,7 @@ import (
 )
 
 func TestBackupScheduleQuestions(t *testing.T) {
-	r := runSetup(t, nil, interactive("https://reader.example.org", "2", "", "Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "", "", "weekly", "12", ""))
+	r := runSetup(t, nil, interactive("https://reader.example.org", "2", "", "Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "", "", "", "", "", "weekly", "12", ""))
 	if r.err != nil || !strings.Contains(r.out.String(), "Backups:          weekly, keep 12") {
 		t.Fatalf("missing weekly backup summary (%v)", r.err)
 	}

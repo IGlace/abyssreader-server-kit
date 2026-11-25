@@ -81,6 +81,9 @@ func Create(ctx context.Context, db *sql.DB, user, title int64, hosted bool, rea
 type Report struct {
 	ID, TitleID, UserID           int64
 	Title, Email, Reason, Details string
+	TargetType                    string
+	TargetID                      int64
+	Content                       bool
 	CreatedAt                     int64
 	Closed                        bool
 }
@@ -133,23 +136,23 @@ func List(ctx context.Context, db *sql.DB, q ListOptions) (ReportPage, error) {
 			args = append(args, strings.TrimPrefix(q.Title, "ref:"))
 		}
 	}
-	if err := tx.QueryRowContext(ctx, `SELECT count(*),count(*) FILTER (WHERE r.closed=0) FROM title_reports r`+where, args...).Scan(&page.Total, &page.Open); err != nil {
+	if err := tx.QueryRowContext(ctx, reportQueue+`SELECT count(*),count(*) FILTER (WHERE r.closed=0) FROM queue r`+where, args...).Scan(&page.Total, &page.Open); err != nil {
 		return page, err
 	}
 	offset := int64(q.Page-1) * int64(q.Limit)
 	if offset >= page.Total {
 		return page, nil
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT r.id,t.id,t.name,u.id,u.email,r.reason,coalesce(r.details,''),r.created_at,r.closed
- FROM title_reports r JOIN titles t ON t.id=r.title_id JOIN users u ON u.id=r.user_id`+where+
-		" ORDER BY r.closed,r.id DESC LIMIT ? OFFSET ?", append(args, q.Limit, offset)...)
+	rows, err := tx.QueryContext(ctx, reportQueue+`SELECT r.id,coalesce(r.title_id,0),r.label,u.id,u.email,r.reason,coalesce(r.details,''),r.created_at,r.closed,r.target_type,r.target_id,r.content
+ FROM queue r JOIN users u ON u.id=r.user_id`+where+
+		" ORDER BY r.closed,r.created_at DESC,r.id DESC,r.content LIMIT ? OFFSET ?", append(args, q.Limit, offset)...)
 	if err != nil {
 		return page, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var r Report
-		if err := rows.Scan(&r.ID, &r.TitleID, &r.Title, &r.UserID, &r.Email, &r.Reason, &r.Details, &r.CreatedAt, &r.Closed); err != nil {
+		if err := rows.Scan(&r.ID, &r.TitleID, &r.Title, &r.UserID, &r.Email, &r.Reason, &r.Details, &r.CreatedAt, &r.Closed, &r.TargetType, &r.TargetID, &r.Content); err != nil {
 			return page, err
 		}
 		page.Items = append(page.Items, r)
@@ -157,29 +160,65 @@ func List(ctx context.Context, db *sql.DB, q ListOptions) (ReportPage, error) {
 	return page, rows.Err()
 }
 
+const reportQueue = `WITH queue AS (
+	SELECT r.id,0 AS content,r.title_id,'title' AS target_type,t.id AS target_id,t.name AS label,r.user_id,r.reason,r.details,r.created_at,r.closed
+	FROM title_reports r JOIN titles t ON t.id=r.title_id
+	UNION ALL
+	SELECT r.id,1,c.title_id,
+	 CASE WHEN r.collection_id IS NOT NULL THEN 'collection'
+	      WHEN c.collection_id IS NOT NULL THEN 'collection comment'
+	      WHEN c.parent_id IS NOT NULL THEN 'reply' ELSE 'comment' END,
+	 coalesce(r.collection_id,r.comment_id),coalesce(k.name,substr(c.text,1,160)),r.user_id,r.reason,r.details,r.created_at,r.closed
+	FROM content_reports r LEFT JOIN comments c ON c.id=r.comment_id LEFT JOIN collections k ON k.id=r.collection_id
+) `
+
 type CloseTarget int
 
 const (
 	SingleReport CloseTarget = iota
 	TitleReports
 	AccountReports
+	SingleContentReport
 )
 
 func Close(ctx context.Context, db *sql.DB, target CloseTarget, id int64) (int64, error) {
-	var column string
+	var query, content string
 	switch target {
 	case SingleReport:
-		column = "id"
+		query = "UPDATE title_reports SET closed=1 WHERE id=? AND closed=0"
+	case SingleContentReport:
+		query = "UPDATE content_reports SET closed=1 WHERE id=? AND closed=0"
 	case TitleReports:
-		column = "title_id"
+		query = "UPDATE title_reports SET closed=1 WHERE title_id=? AND closed=0"
+		content = "UPDATE content_reports SET closed=1 WHERE comment_id IN (SELECT id FROM comments WHERE title_id=?) AND closed=0"
 	case AccountReports:
-		column = "user_id"
+		query = "UPDATE title_reports SET closed=1 WHERE user_id=? AND closed=0"
+		content = "UPDATE content_reports SET closed=1 WHERE user_id=? AND closed=0"
 	default:
 		return 0, errors.New("unknown report close target")
 	}
-	r, err := db.ExecContext(ctx, "UPDATE title_reports SET closed=1 WHERE "+column+"=? AND closed=0", id)
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
-	return r.RowsAffected()
+	defer tx.Rollback()
+	change := func(query string) (int64, error) {
+		r, err := tx.ExecContext(ctx, query, id)
+		if err != nil {
+			return 0, err
+		}
+		return r.RowsAffected()
+	}
+	n, err := change(query)
+	if err != nil {
+		return 0, err
+	}
+	if content != "" {
+		m, err := change(content)
+		if err != nil {
+			return 0, err
+		}
+		n += m
+	}
+	return n, tx.Commit()
 }

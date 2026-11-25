@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/IGlace/abyssreader-server-kit/internal/definitions"
 )
 
 const pins = ".kit-pins"
@@ -70,6 +72,15 @@ func linkPayload(ctx context.Context, source, dest string, privateDB bool) error
 			return err
 		}
 		target := filepath.Join(dest, rel)
+		if rel == keyBackupMember {
+			if err := definitions.EnsureSecretsFolder(dest); err != nil {
+				return err
+			}
+			if err := copyImage(path, target); err != nil {
+				return err
+			}
+			return syncSecrets(dest)
+		}
 		if privateDB && rel == Database {
 			return copyImage(path, target)
 		}

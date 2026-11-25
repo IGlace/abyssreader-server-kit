@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright 2026 Abyss Reader
+name: App check failure
+description: Share an app operator report for an official server kit image.
+title: "App check: "
+body:
+  - type: input
+    id: release
+    attributes:
+      label: Kit release and app version
+    validations:
+      required: true
+  - type: textarea
+    id: operator-report
+    attributes:
+      label: Copy report for the operator
+      description: Paste the report from the app after removing any private details.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Health output and recent logs
+      description: Paste the setup health output and any relevant logs with credentials and personal data removed.

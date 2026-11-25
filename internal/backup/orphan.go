@@ -387,7 +387,7 @@ func reassemble(tx, data string) error {
 				return err
 			}
 		}
-		live := filepath.Join(data, name)
+		live := restoreLivePath(data, name)
 		hasLive, err := exists(live)
 		if err != nil {
 			return err

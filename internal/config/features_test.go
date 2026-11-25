@@ -40,7 +40,6 @@ func TestUnknownOrUnbuiltFeaturesAreRefused(t *testing.T) {
 	for value, want := range map[string]string{
 		"hosted-chapter":             `"hosted-chapter" is not an optional feature`,
 		"Hosted-Chapters":            `"Hosted-Chapters" is not an optional feature`,
-		"hosted-chapters,comments":   `"comments" is not in this kit version yet`,
 		"google-sign-in":             `"google-sign-in" is not in this kit version yet`,
 		"hosted-chapters;collection": `is not an optional feature`,
 	} {

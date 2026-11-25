@@ -94,6 +94,9 @@ func Run(ctx context.Context, o Options) error {
 	s := &session{o: o, ctx: ctx, fresh: current == nil, hostAddrs: parseHostAddresses(string(hostAddrs))}
 	s.a = defaults()
 	if current != nil {
+		if ref, ok := current[KeyKitImage]; ok && ref != o.Image {
+			return fmt.Errorf("KIT_IMAGE in the installed settings differs from --image")
+		}
 		s.a = fromEnv(current)
 	}
 	oldKey := s.a.AccessKey
@@ -285,6 +288,12 @@ func (s *session) apply(file map[string]string, rest map[string]string) error {
 				bad(k, fmt.Sprintf("must be a whole number from 1 to %d", config.MaxBackupKeep))
 			}
 			s.a.BackupKeep = n
+		case KeyKitImage:
+			if v != s.o.Image {
+				bad(k, "must match the image chosen by install.sh")
+			} else {
+				rest[k] = v
+			}
 		case KeyDNSCheck:
 			switch strings.ToLower(v) {
 			case "skip":

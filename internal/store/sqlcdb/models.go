@@ -8,6 +8,11 @@ import (
 	"database/sql"
 )
 
+type AccountSuspension struct {
+	UserID int64
+	Reason string
+}
+
 type Author struct {
 	ID   int64
 	Name string
@@ -38,6 +43,74 @@ type ChapterPage struct {
 	FileSha256 string
 }
 
+type Collection struct {
+	ID          int64
+	UserID      int64
+	Slug        string
+	Name        string
+	NameKey     string
+	Description sql.NullString
+	Views       int64
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
+type CollectionTitle struct {
+	CollectionID int64
+	TitleID      int64
+	Position     int64
+}
+
+type CollectionVote struct {
+	CollectionID int64
+	UserID       int64
+	Vote         string
+}
+
+type Comment struct {
+	ID           int64
+	UserID       int64
+	TitleID      sql.NullInt64
+	CollectionID sql.NullInt64
+	ParentID     sql.NullInt64
+	Text         string
+	ImageUrl     sql.NullString
+	Spoiler      int64
+	CreatedAt    int64
+	UpdatedAt    int64
+}
+
+type CommentVote struct {
+	CommentID int64
+	UserID    int64
+	Vote      string
+}
+
+type ContentReport struct {
+	ID           int64
+	UserID       int64
+	CommentID    sql.NullInt64
+	CollectionID sql.NullInt64
+	Reason       string
+	Details      sql.NullString
+	CreatedAt    int64
+	Closed       int64
+}
+
+type DefinitionHealth struct {
+	SourceSlug string
+	ErrorKind  string
+	Count      int64
+}
+
+type DefinitionKey struct {
+	Slot        int64
+	KeyID       string
+	PublicKey   string
+	EndorsedBy  sql.NullString
+	Endorsement sql.NullString
+}
+
 type Genre struct {
 	ID   int64
 	Slug string
@@ -48,6 +121,15 @@ type HostedSourceTitle struct {
 	SourceTitleID int64
 	ReadingMode   sql.NullString
 	Rights        sql.NullString
+}
+
+type OperatorDefinition struct {
+	SourceSlug    string
+	Version       int64
+	Content       sql.NullString
+	ContentHash   sql.NullString
+	Signature     string
+	MinAppVersion sql.NullString
 }
 
 type PageFile struct {

@@ -17,6 +17,16 @@ import (
 // Preview fully verifies a private staging tree. The running server ignores the outer
 // scratch directory. A killed installer leaves the same time-limited scratch as extraction.
 func Preview(ctx context.Context, data, generation string, in io.Reader, maxSchema int64) (string, error) {
+	return preview(ctx, data, generation, in, maxSchema, false)
+}
+
+// PreviewKeepingDefinitionIdentity explicitly allows an archive from a different
+// signing state. The approval follows the staged operation through recovery.
+func PreviewKeepingDefinitionIdentity(ctx context.Context, data, generation string, in io.Reader, maxSchema int64) (string, error) {
+	return preview(ctx, data, generation, in, maxSchema, true)
+}
+
+func preview(ctx context.Context, data, generation string, in io.Reader, maxSchema int64, allow bool) (string, error) {
 	if err := Ready(data); err != nil {
 		return "", err
 	}
@@ -33,6 +43,13 @@ func Preview(ctx context.Context, data, generation string, in io.Reader, maxSche
 		if err = checkType(root, true); err == nil {
 			err = stageLocal(ctx, temp, filepath.Join(root, generation), "", maxSchema)
 		}
+	}
+	tx := filepath.Join(temp, transaction)
+	if err == nil {
+		_, err = planDefinitionRestore(ctx, data, filepath.Join(tx, "new"), allow)
+	}
+	if err == nil && allow {
+		err = mark(tx, definitionRestoreOverride)
 	}
 	if err != nil {
 		return "", errors.Join(err, RemoveScratch(temp))

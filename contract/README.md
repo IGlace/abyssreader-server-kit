@@ -13,6 +13,7 @@ The server kit's `contract/` folder is the source of truth. The official server'
 | `openapi.yaml` | OpenAPI 3.1: the fixed `GET /api/status` and every contract v1 route under `/api/v1`. |
 | `examples/<operationId>.json` | One example per operation (request and response). |
 | `examples/<operationId>.<case>.json` | Extra cases: error bodies, `304`, `409`, `429`. |
+| [`definition.schema.json`](definition.schema.json) | Schema for resolved source definitions. See the [family/source merge rules](definition-merge.md). |
 | `sync/` | The sync part, referenced unchanged: `sync.schema.json` plus its fixtures and worked examples (see `sync/README.md`). |
 | `redocly.yaml`, `.redocly.lint-ignore.yaml` | Lint configuration (Redocly `recommended-strict`) and its two accepted exceptions. |
 

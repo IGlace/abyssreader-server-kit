@@ -99,7 +99,14 @@ func (s *server) signIn(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, accounts.ErrWrongPassword) {
 		s.accountFails.spend(account)
 	}
+	var suspended *accounts.Suspended
 	switch {
+	case errors.As(err, &suspended):
+		message := "This account is suspended. Contact the server operator."
+		if suspended.Reason != "" {
+			message = "This account is suspended: " + suspended.Reason
+		}
+		writeError(w, http.StatusForbidden, "account_suspended", message)
 	case errors.Is(err, accounts.ErrDisabled):
 		writeError(w, http.StatusForbidden, "account_disabled", "This account is disabled. Contact the server operator.")
 	case !s.failed(w, err):

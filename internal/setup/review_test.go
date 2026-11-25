@@ -76,7 +76,7 @@ func TestInterruptStopsAWaitingQuestion(t *testing.T) {
 
 func TestInterruptStopsTheSecretQuestion(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	o := interactive("https://reader.example.org", "2", "", "Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "")
+	o := interactive("https://reader.example.org", "2", "", "Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "", "", "", "")
 	o.ReadSecret = func() (string, error) { cancel(); select {} }
 	r := &run{dir: t.TempDir()}
 	o.WorkDir, o.Image, o.KitVersion, o.Out = r.dir, testImage, "1.0.0", &r.out

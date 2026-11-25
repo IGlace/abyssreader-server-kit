@@ -14,6 +14,7 @@ import (
 
 	"github.com/IGlace/abyssreader-server-kit/internal/accounts"
 	"github.com/IGlace/abyssreader-server-kit/internal/catalog"
+	"github.com/IGlace/abyssreader-server-kit/internal/community"
 	"github.com/IGlace/abyssreader-server-kit/internal/config"
 	"github.com/IGlace/abyssreader-server-kit/internal/covers"
 	"github.com/IGlace/abyssreader-server-kit/internal/usersync"
@@ -54,6 +55,7 @@ type server struct {
 	clientKey    func(*http.Request) string
 	status       statusBody
 	catalog      *catalog.Catalog
+	community    *community.Service
 	backups      *backupLimits
 	sync         *usersync.Service
 }
@@ -76,6 +78,7 @@ func New(o Options) http.Handler {
 		status:       newStatus(o.Config, o.Config.Features),
 		catalog:      catalog.New(o.DB, nil, nil).ShowHosted(o.Config.FeatureOn(config.HostedChapters)),
 		sync:         usersync.New(o.DB),
+		community:    community.New(o.DB, o.Config.FeatureOn(config.HostedChapters)),
 		backups:      newBackupLimits(),
 	}
 	s.clientKey = clientKey(o.Config.TrustedProxies, func(peer string) {

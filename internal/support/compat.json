@@ -1,0 +1,16 @@
+{
+  "_licence": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0",
+  "_copyright": "Copyright 2026 Abyss Reader",
+  "formatVersion": 1,
+  "minimumAppVersion": {
+    "android": "1.0.3",
+    "ios": "1.0.3"
+  },
+  "supportSchedule": [
+    {
+      "contractMajor": 1,
+      "endDate": null,
+      "upcomingLowestMinor": null
+    }
+  ]
+}

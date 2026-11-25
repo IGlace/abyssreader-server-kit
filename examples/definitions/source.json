@@ -1,0 +1,10 @@
+{
+  "$comment": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0. Copyright 2026 Abyss Reader.",
+  "id": "paper-lantern",
+  "name": "Paper Lantern Library",
+  "lang": "en",
+  "baseUrl": "https://lantern.example.com",
+  "versionId": 1,
+  "hosts": ["images.lantern.example.com"],
+  "params": {"bookSelector": ".lantern-story"}
+}

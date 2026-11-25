@@ -68,7 +68,7 @@ func main() {
 
 const usage = `Usage:
   abyssreader-server [serve]                           run the server
-` + featureUsage + `  abyssreader-server admin users reset-password EMAIL  print a new temporary password
+` + featureUsage + doctorUsage + supportScheduleUsage + definitionUsage + `  abyssreader-server admin users reset-password EMAIL  print a new temporary password
   abyssreader-server admin users disable EMAIL         switch an account off (403 account_disabled)
   abyssreader-server admin users enable EMAIL          switch a disabled account on again
   abyssreader-server admin import [--remove-chapters] FOLDER
@@ -116,6 +116,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv fu
 		return maintenance(ctx, args[1:], os.Stdin, stdout, stderr, getenv)
 	case "healthcheck":
 		return healthcheck(ctx, stderr, getenv)
+	case "definitions":
+		return definitionCommand(ctx, args[1:], stdout, stderr, getenv)
+	case "doctor":
+		return doctorCommand(ctx, args[1:], stdout, stderr, getenv)
+	case "support-schedule":
+		return supportScheduleCommand(args[1:], os.Stdin, stdout, stderr)
 	case "status":
 		return status(ctx, stdout, stderr, getenv)
 	case "setup":
@@ -159,6 +165,9 @@ func serve(ctx context.Context, stdout io.Writer, getenv func(string) string) er
 		return err
 	}
 	defer db.Close()
+	if err := ensureDefinitionKey(cfg.DataDir, db); err != nil {
+		return err
+	}
 	svc := accounts.New(db, cfg.SessionIdleTimeout)
 	coverStore, err := covers.OpenStore(cfg.DataDir)
 	if err != nil {
@@ -189,6 +198,7 @@ func serve(ctx context.Context, stdout io.Writer, getenv func(string) string) er
 		"name", cfg.ServerName, "publicUrl", cfg.PublicURL, "signUpOpen", cfg.SignUpOpen, "accessKeyRequired", cfg.AccessKey != "", "features", strings.Join(cfg.Features, ","), "data", config.DataDir(getenv),
 		"errorReporting", cfg.ErrorReportingDSN != "")
 
+	watchContractSupport(ctx, log)
 	stopBackups := scheduleBackups(ctx, cfg, db, log)
 	defer stopBackups()
 	go purgeIdleSessions(ctx, svc, log)
@@ -254,7 +264,8 @@ func admin(ctx context.Context, args []string, stdout, stderr io.Writer, getenv 
 	switch {
 	case len(args) > 0 && args[0] == "backup":
 		return adminBackup(ctx, args[1:], stdout, stderr, getenv)
-	case len(args) > 0 && (args[0] == "reports" || args[0] == "purge"):
+	case len(args) > 0 && (args[0] == "reports" || args[0] == "purge" ||
+		args[0] == "remove" || args[0] == "suspend" || args[0] == "unsuspend"):
 		return featureAdmin(ctx, args, os.Stdin, stdout, stderr, getenv)
 	case len(args) == 3 && args[0] == "users":
 		switch args[1] {

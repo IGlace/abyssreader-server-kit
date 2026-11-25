@@ -921,8 +921,8 @@ paths:
       summary: A source's current definition
       description: |
         `ETag` is required, and `If-None-Match` with the current ETag answers `304`. `content` is
-        the definition's JSON text, valid against the definition schema used by the app's tests.
-        A versioned contract copy will include the `hosts` field the sandbox below relies on. `contentHash` is the lowercase hex SHA-256 of its UTF-8
+        the definition's JSON text, valid against the contract's `definition.schema.json`.
+        `contentHash` is the lowercase hex SHA-256 of its UTF-8
         bytes; `signature` follows the manifest's statement. A slug with no current definition
         (unknown or revoked) is `404 not_found`.
 

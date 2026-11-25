@@ -50,6 +50,7 @@ const (
 	// KeyDNSCheck exists only in an answers file: "skip" installs in Caddy mode even when the
 	// address does not resolve to this machine (yet).
 	KeyDNSCheck = "ABYSS_INSTALL_DNS_CHECK"
+	KeyKitImage = "KIT_IMAGE"
 )
 
 // asked lists the asked settings in the order they are written to .env.

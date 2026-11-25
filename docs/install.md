@@ -21,7 +21,7 @@ Piping the script into `sh` (`curl … | sh`) is not supported: download it, rea
 - **What is contacted, and when:**
   - `get.docker.com` and `download.docker.com`: only when Docker is missing and you said yes;
   - `ghcr.io` on install, upgrade or recovery of an evicted image, to download the exact server image;
-  - `api.github.com` only on an explicit `upgrade --check`;
+  - `api.github.com` and `abyssreader.com/app/compat.json` only on an explicit `upgrade --check`;
   - in the Caddy mode, Docker Hub (the `caddy:2.11.9` image), Let's Encrypt (Caddy gets the certificate itself; when Let's Encrypt fails, Caddy's default is to try ZeroSSL as a second issuer) and your own address (`https://<your address>/api/status`, to check that it answers);
   - your DNS resolver, for the Caddy mode's DNS check.
 - An answers file that other users can read is refused when it holds a secret (a DSN, or an access key other than `generate` or `new`).
@@ -64,6 +64,9 @@ The data lives in the Docker volume `abyssreader-server_data`, which uninstall d
 `.env` uses Docker Compose's env-file format. The setup writes every value in double quotes with `\\`, `\"`, `\$` and `\n` escaped, so names with spaces, quotes, `$` or backslashes reach the server exactly; line breaks and other control characters are refused in names. Two settings in it are the installer's own, and the server ignores them: `ABYSS_INSTALL_HTTPS` (`caddy` or `own-proxy`) and `ABYSS_INSTALL_PORT`.
 
 Nothing secret is printed, put on a command line or left in your shell history: the answers go through the setup's terminal or a file. To read the access key (users type it when they add the server): `sudo grep '^ABYSS_ACCESS_KEY=' /opt/abyssreader-server/.env`.
+
+If you use Gemini CLI, configure it to read `AGENTS.md` in the operator workspace.
+For Aider, open the workspace with `--read AGENTS.md`.
 
 ## Running it again, and configure
 
@@ -134,7 +137,7 @@ Download `install.sh`, its checksum and `image-digest.txt` from the kit's
 Maintainers publish the release locally after the build and compatibility checks pass. Each installer pins the tested image digest. Release notes list the contract
 versions served and upcoming app support dates.
 
-- `install.sh` in the repo has `KIT_VERSION=unreleased` and refuses to install. `scripts/stamp-install.sh <version> sha256:<digest> [out]` writes the release copy (default `dist/install.sh`) with the published image digest and prints the installer checksum. The local publisher attaches the installer, its checksum and `image-digest.txt`. The release copy has **no test hooks**: the lines between `# BEGIN TEST HOOKS` and `# END TEST HOOKS` are removed, so `ABYSS_INSTALL_DIR`, `ABYSS_INSTALL_WAIT` and `ABYSS_INSTALL_TEST` mean nothing to it.
+- `install.sh` in the repo has `KIT_VERSION=unreleased`. To install a fork from source, use [a custom image](developers/own-image.md). `scripts/stamp-install.sh <version> sha256:<digest> [out]` writes the release copy (default `dist/install.sh`) with the published image digest and prints the installer checksum. The local publisher attaches the installer, its checksum and `image-digest.txt`. The release copy has **no test hooks**: the lines between `# BEGIN TEST HOOKS` and `# END TEST HOOKS` are removed, so `ABYSS_INSTALL_DIR`, `ABYSS_INSTALL_WAIT` and `ABYSS_INSTALL_TEST` mean nothing to it.
 - One `install.sh` runs at a time (Linux `flock` from util-linux and the lock `.installer/lock`, with its process id). A lock whose process is gone (a closed SSH session, a killed run) is taken over with a message, and abandoned setup work is cleaned up. An interrupted data operation retains its journal for `install.sh recover`.
 - `scripts/test-install.sh <version>` runs the installer end to end with real Docker in the own-proxy mode, against an image built locally with that tag. CI runs it as root on a throwaway runner; on a development machine `scripts/stamp-install.sh --keep-test-hooks <version>`, then `COMPOSE_PROJECT_NAME=<your own> ABYSS_INSTALL_TEST=1 sh scripts/test-install.sh <version>` runs it in a temporary folder without root.
 
@@ -169,7 +172,7 @@ To restore a portable archive, run `sudo sh install.sh restore /srv/kit-backup.t
 
 ## Upgrade, rollback and uninstall
 
-- `sudo sh install.sh upgrade --check` uses curl to read the latest release over HTTPS from GitHub, compares it with the installed tag and reports which is newer. It sends no version, settings or user data.
+- `sudo sh install.sh upgrade --check` uses curl to read the latest release over HTTPS from GitHub, compares it with the installed tag, and checks the [live app support schedule](guides/support-schedule.md). It sends no version, settings or user data.
 - `sudo sh install.sh upgrade` uses the exact release stamped into the downloaded script. For a different release such as `upgrade 1.2.3` or `upgrade 1.2.3-rc.1`, the installer reads that release's `image-digest.txt` before stopping the server. Older tags are refused, including when you run an older script. After preflight, the installer stops the server, snapshots it, pulls the candidate image and publishes the pre-upgrade rollback point before starting the candidate. A failed status check restores the previous image reference and its pre-migration data.
 - `sudo sh install.sh rollback` asks you to type `ROLLBACK`. This discards writes since the last successful upgrade. The installer pulls the pinned previous image again if necessary, checks the snapshot against that image's schema, and verifies the server after starting it. If that start fails, it restores the image and data that were serving before the rollback attempt. Scheduled retention is independent of the rollback pin. A later successful upgrade replaces the pin.
 - `sudo sh install.sh uninstall` lists the affected containers, network, install folder (including `.env`, `import/` and installer state), image tags and volumes before asking for confirmation. It offers a private final archive in a new mode-700 directory alongside the install folder. Type the complete public address including `https://` to delete the server and Caddy volumes, including Caddy’s TLS private keys, certificates and ACME account. This choice requires a verified final archive. Before deleting, the installer checks whether any declared missing image is recoverable on the volume. A recoverable omission stops deletion. For images lost everywhere, it lists each path and requires a second confirmation, `DELETE INCOMPLETE`. With a corrupt database it also writes `full-volume.tar` alongside the raw `backup.tar`. This separate salvage archive preserves all regular files on the stopped volume, including older backups and pins, and is compared byte for byte against a second read of the volume. Hard links share space inside it. Allow room on the host for both archives. The installer then requires `DELETE RAW`. A failed verification or cancelled extra confirmation keeps the volume. Closing stdin cancels the prompts. The installer skips any image used by a running or stopped container and removes tags without force. An inactive Compose file with no containers can still refer to a removed tag and may need to pull it again. Off-machine copies stay. Secure the final archive after uninstall.

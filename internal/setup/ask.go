@@ -21,6 +21,9 @@ const backupDiskNote = "Backups are on the same disk as the server. They protect
 var featureHelp = map[string]string{
 	"backup":              "signed-in readers can download and restore their own library",
 	"reports":             "readers can report a title for you to review with admin reports",
+	"comments":            "readers can comment, reply, vote and report comments on titles",
+	"collections":         "readers can share title lists and comment, vote and report on them",
+	"stats":               "readers can see their own statistics; anyone can see the rankings with scorer names and avatars",
 	config.HostedChapters: "chapters and pages this server stores itself, imported with admin import",
 }
 

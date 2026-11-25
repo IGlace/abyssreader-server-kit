@@ -11,7 +11,8 @@ dist
 contract
 *.md
 
-# The server embeds the sync schema (contract.go); the rest of contract/ stays out.
+# The server embeds the sync and definition schemas (contract.go); the rest of contract/ stays out.
+!contract/definition.schema.json
 !contract/sync/sync.schema.json
 
 # CI-only contract validator and its local dependencies.

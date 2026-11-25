@@ -16,6 +16,9 @@ const (
 	HostedChapters = "hosted-chapters"
 	Reports        = "reports"
 	Backup         = "backup"
+	Comments       = "comments"
+	Collections    = "collections"
+	Stats          = "stats"
 )
 
 // Routes is implemented by the HTTP server, with the feature gate already bound.
@@ -23,6 +26,9 @@ type Routes interface {
 	HostedRoutes()
 	ReportRoutes()
 	BackupRoutes()
+	CommentsRoutes()
+	CollectionsRoutes()
+	StatsRoutes()
 }
 type Definition struct {
 	Name     string
@@ -34,6 +40,9 @@ var Built = []Definition{
 	{HostedChapters, Routes.HostedRoutes, purgeHosted},
 	{Reports, Routes.ReportRoutes, purgeReports},
 	{Backup, Routes.BackupRoutes, purgeBackup},
+	{Comments, Routes.CommentsRoutes, purgeComments},
+	{Collections, Routes.CollectionsRoutes, purgeCollections},
+	{Stats, Routes.StatsRoutes, purgeStats},
 }
 
 // Account backups are streamed. All restored rows belong to core library/sync.
@@ -48,4 +57,25 @@ func purgeReports(ctx context.Context, db *sql.DB, _ string, _ io.Writer) (strin
 	}
 	n, err := r.RowsAffected()
 	return fmt.Sprintf("reports=%d", n), err
+}
+
+func purgeComments(ctx context.Context, db *sql.DB, _ string, _ io.Writer) (string, error) {
+	return purgeRows(ctx, db, "comments", " WHERE title_id IS NOT NULL")
+}
+
+func purgeCollections(ctx context.Context, db *sql.DB, _ string, _ io.Writer) (string, error) {
+	return purgeRows(ctx, db, "collections", "")
+}
+
+func purgeStats(context.Context, *sql.DB, string, io.Writer) (string, error) {
+	return "stored_stats=0", nil // Aggregates are computed on read.
+}
+
+func purgeRows(ctx context.Context, db *sql.DB, table, where string) (string, error) {
+	r, err := db.ExecContext(ctx, "DELETE FROM "+table+where)
+	if err != nil {
+		return "", err
+	}
+	n, err := r.RowsAffected()
+	return fmt.Sprintf("%s=%d", table, n), err
 }

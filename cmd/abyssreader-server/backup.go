@@ -208,7 +208,19 @@ func maintenance(ctx context.Context, args []string, in io.Reader, out, stderr i
 				fmt.Fprintln(out, "Preserved recovery files at", kept)
 			}
 		}
-	case len(args) == 2 && args[0] == "preview", len(args) == 3 && args[0] == "preview-generation":
+	case args[0] == "preview", args[0] == "preview-generation":
+		allow := args[len(args)-1] == "--allow-definition-rollback"
+		if allow {
+			args = args[:len(args)-1]
+		}
+		want := 2
+		if args[0] == "preview-generation" {
+			want = 3
+		}
+		if len(args) != want {
+			err = errors.New("invalid restore preview arguments")
+			break
+		}
 		var max int64
 		if max, err = schemaNumber(args[len(args)-1]); err != nil {
 			break
@@ -222,7 +234,11 @@ func maintenance(ctx context.Context, args []string, in io.Reader, out, stderr i
 			source = args[1]
 		}
 		var id string
-		id, err = backup.Preview(ctx, dir, source, in, max)
+		if allow {
+			id, err = backup.PreviewKeepingDefinitionIdentity(ctx, dir, source, in, max)
+		} else {
+			id, err = backup.Preview(ctx, dir, source, in, max)
+		}
 		if err == nil {
 			fmt.Fprintln(out, id)
 		}

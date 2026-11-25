@@ -247,7 +247,7 @@ ABYSS_OPERATOR_NAME=Team
 ABYSS_OPERATOR_CONTACT=team@example.org
 ABYSS_OPERATOR_TERMS_URL=http://example.org/terms
 ABYSS_SIGN_UP_OPEN=maybe
-ABYSS_FEATURES=comments
+ABYSS_FEATURES=google-sign-in
 ABYSS_ERROR_REPORTING_DSN=http://secretkey@glitchtip.example.org/1
 ABYSS_BACKUP_SCHEDULE=hourly
 ABYSS_BACKUP_KEEP=0
@@ -401,11 +401,12 @@ func TestInteractiveFreshInstall(t *testing.T) {
 		"Lantern Library",                                             // 3
 		"Lantern team", "team@example.org", "mailto:team@example.org", // 4: a bad contact, then a good one
 		"http://example.org/privacy", "https://example.org/privacy", "", "", // links: one bad, then good; none; none
-		"n",                                   // 5: sign-up closed
-		"y",                                   // 6: an access key
-		"y",                                   // 7: hosted-chapters
-		"y",                                   // 7: reports
-		"n",                                   // 7: account backup
+		"n",           // 5: sign-up closed
+		"y",           // 6: an access key
+		"y",           // 7: hosted-chapters
+		"y",           // 7: reports
+		"n",           // 7: account backup
+		"n", "n", "n", // 7: comments, collections, stats
 		"https://key@glitchtip.example.org/3", // 8
 		"weekly", "12",                        // 9: backups
 		"", // write: yes
@@ -469,7 +470,7 @@ func TestInteractiveConfigureKeepsEverything(t *testing.T) {
 
 func TestInteractiveRemoveAndCancel(t *testing.T) {
 	// Answering "no" to writing changes nothing.
-	r := runSetup(t, map[string]string{CurrentFile: currentEnv}, interactive("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "n"))
+	r := runSetup(t, map[string]string{CurrentFile: currentEnv}, interactive("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "n"))
 	if !errors.Is(r.err, ErrCancelled) {
 		t.Fatalf("want ErrCancelled: %v\n%s", r.err, r.out.String())
 	}
@@ -494,7 +495,7 @@ func TestInteractiveCaddyDNSRetry(t *testing.T) {
 	r := runSetup(t, map[string]string{HostAddrsFile: "203.0.113.9"}, Options{Interactive: true, Lookup: lookup, In: strings.NewReader(strings.Join([]string{
 		"https://wrong.example.org", "1", "n", // points elsewhere: not anyway
 		"https://reader.example.org", "1", // points here
-		"Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "", "", "", "", "",
+		"Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
 	}, "\n") + "\n")})
 	if r.err != nil {
 		t.Fatalf("%v\n%s", r.err, r.out.String())
@@ -506,7 +507,7 @@ func TestInteractiveCaddyDNSRetry(t *testing.T) {
 
 func TestReadSecretIsUsedForTheDSN(t *testing.T) {
 	used := false
-	o := interactive("https://reader.example.org", "2", "", "Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "", "", "", "")
+	o := interactive("https://reader.example.org", "2", "", "Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "", "", "", "", "", "", "")
 	o.ReadSecret = func() (string, error) { used = true; return "https://k@glitchtip.example.org/1", nil }
 	r := runSetup(t, nil, o)
 	if r.err != nil || !used || r.env(t)[KeyDSN] != "https://k@glitchtip.example.org/1" {

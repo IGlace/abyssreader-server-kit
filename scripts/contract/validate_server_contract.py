@@ -57,8 +57,7 @@ CONTRACT_DIR = ROOT / "contract"
 OPENAPI = CONTRACT_DIR / "openapi.yaml"
 EXAMPLES = CONTRACT_DIR / "examples"
 SYNC_SCHEMA = CONTRACT_DIR / "sync" / "sync.schema.json"
-# The definition schema is pinned as a validation fixture beside this script. See README.md.
-DEFINITION_SCHEMA = Path(__file__).with_name("source-definition.schema.json")
+DEFINITION_SCHEMA = CONTRACT_DIR / "definition.schema.json"
 HEADER_FILES = ("openapi.yaml", "redocly.yaml", ".redocly.lint-ignore.yaml")
 
 LICENCE_ID = "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0"
@@ -277,6 +276,30 @@ def strict_copy(node: Any) -> Any:
     return node
 
 
+def definition_validator() -> Draft202012Validator:
+    return Draft202012Validator(
+        json.loads(DEFINITION_SCHEMA.read_text(encoding="utf-8")),
+        format_checker=Draft202012Validator.FORMAT_CHECKER,
+    )
+
+
+def definition_errors(validator: Draft202012Validator, definition: Any) -> list[str]:
+    return [f"{'/'.join(map(str, error.absolute_path)) or '(root)'}: {error.message}"
+            for error in validator.iter_errors(definition)]
+
+
+def check_definition_file(path: Path) -> int:
+    try:
+        definition = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        print(f"{path}: {error}", file=sys.stderr)
+        return 1
+    errors = definition_errors(definition_validator(), definition)
+    for error in errors:
+        print(f"{path}: {error}", file=sys.stderr)
+    return 1 if errors else 0
+
+
 class ExampleChecker:
     def __init__(self, spec: dict):
         self.spec = spec
@@ -290,9 +313,7 @@ class ExampleChecker:
             (sync_doc["$id"], sync_res),
         ])
         self.contract_codes = set(spec["components"]["schemas"]["Error"]["properties"]["code"]["x-values"])
-        self.definition_validator = Draft202012Validator(
-            json.loads(DEFINITION_SCHEMA.read_text(encoding="utf-8")),
-            format_checker=Draft202012Validator.FORMAT_CHECKER)
+        self.definition_validator = definition_validator()
         self.ops: dict[str, tuple[str, str, dict]] = {
             op["operationId"]: (path, method, op) for path, method, op in operations(spec)
         }
@@ -350,8 +371,8 @@ class ExampleChecker:
             definition = json.loads(body.get("content", ""))
         except ValueError as e:
             return [f"definition content is not JSON: {e}"]
-        errs = [f"definition content: {'/'.join(map(str, e.absolute_path)) or '(root)'}: {e.message}"
-                for e in self.definition_validator.iter_errors(definition)]
+        errs = [f"definition content: {error}"
+                for error in definition_errors(self.definition_validator, definition)]
         if hashlib.sha256(body["content"].encode("utf-8")).hexdigest() != body.get("contentHash"):
             errs.append("definition contentHash is not the SHA-256 of content")
         return errs
@@ -637,6 +658,10 @@ def self_test() -> int:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--self-test", action="store_true", help="prove that the checks catch breakage")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--definition", type=Path, help="validate a local, resolved definition JSON file")
+    mode.add_argument("--self-test", action="store_true", help="prove that the checks catch breakage")
     args = parser.parse_args()
+    if args.definition is not None:
+        sys.exit(check_definition_file(args.definition))
     sys.exit(self_test() if args.self_test else run())

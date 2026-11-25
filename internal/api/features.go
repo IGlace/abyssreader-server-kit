@@ -19,7 +19,7 @@ type featureRoutes struct {
 }
 
 func (s *server) registerFeatures(v1, root *http.ServeMux) {
-	titleActions := map[string]http.HandlerFunc{"comments": disabledMethods("GET", "POST")}
+	titleActions := make(map[string]http.HandlerFunc)
 	for _, feature := range features.Built {
 		feature.Register(featureRoutes{s, v1, root, feature.Name, titleActions})
 	}

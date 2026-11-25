@@ -29,3 +29,6 @@ dist/
 
 # Contract validator dependencies installed locally
 /scripts/contract/node_modules/
+
+# Local Python validator bytecode
+__pycache__/

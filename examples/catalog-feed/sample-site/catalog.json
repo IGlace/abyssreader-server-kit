@@ -1,0 +1,7 @@
+{
+  "_notice": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0. Copyright 2026 Abyss Reader.",
+  "series": [
+    {"id": "glass-forest", "title": "The Glass Forest", "path": "/series/glass-forest"},
+    {"id": "low-tide", "title": "Postcards at Low Tide", "path": "/series/low-tide"}
+  ]
+}

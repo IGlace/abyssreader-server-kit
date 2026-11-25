@@ -36,8 +36,16 @@ jobs:
       # contract/openapi.yaml (strict schema, declared statuses, the contract's error codes).
       - name: go test (with the race detector)
         run: go test -race -count=1 ./...
-      # Every examples/**/manifest.json against schemas/import-manifest.schema.json. The
-      # step above runs it too; this one names it.
+      - name: Operator help matches the CLI and published paths
+        run: |
+          go build -o "$RUNNER_TEMP/abyssreader-server" ./cmd/abyssreader-server
+          python3 scripts/operator-docs.py check "$RUNNER_TEMP/abyssreader-server"
+          python3 scripts/test-operator-docs.py
+          python3 scripts/test-operator-hook.py
+          sh scripts/test-operator-workspace.sh
+      - name: Generated catalog feed manifest validates and imports
+        run: go test -count=1 ./examples/catalog-feed
+      # Every examples/**/manifest.json against schemas/import-manifest.schema.json.
       - name: Example import manifests match the schema
         run: go test -count=1 -run 'TestEveryExampleManifestMatchesTheSchema' ./schemas/
       # The image build makes the same file; this step fails on a GPL, LGPL, AGPL or SSPL module.
@@ -77,6 +85,7 @@ jobs:
         run: |
           python scripts/contract/validate_server_contract.py
           python scripts/contract/validate_server_contract.py --self-test
+          python -m unittest discover -s scripts/contract -p test_definition_hosts.py
 
   image:
     name: Image builds and runs (simple setup)
@@ -159,10 +168,16 @@ jobs:
       - name: shellcheck (POSIX sh) and dash syntax
         run: |
           shellcheck --version | head -n 2
-          shellcheck -s sh install.sh scripts/stamp-install.sh scripts/test-install.sh scripts/test-install-digest.sh scripts/test-install-digest-docker.sh scripts/test-backup-install.sh scripts/testdata/*.sh scripts/check-licence-headers.sh
-          for f in install.sh scripts/stamp-install.sh scripts/test-install.sh scripts/test-install-digest.sh scripts/test-install-digest-docker.sh scripts/test-backup-install.sh scripts/testdata/*.sh; do dash -n "$f"; done
+          shellcheck -s sh install.sh scripts/stamp-install.sh scripts/test-install.sh scripts/test-install-digest.sh scripts/test-install-digest-docker.sh scripts/test-backup-install.sh scripts/test-custom-image-install.sh scripts/testdata/*.sh scripts/check-licence-headers.sh
+          for f in install.sh scripts/stamp-install.sh scripts/test-install.sh scripts/test-install-digest.sh scripts/test-install-digest-docker.sh scripts/test-backup-install.sh scripts/test-custom-image-install.sh scripts/testdata/*.sh; do dash -n "$f"; done
+      - name: Check custom image selection and confirmation
+        run: python3 scripts/test-custom-image-review.py
       - name: Build the image as the release would tag it (never pushed)
         run: docker build --build-arg VERSION=0.0.0-ci -t ghcr.io/iglace/abyssreader-server-kit:0.0.0-ci .
+      - name: Install and configure a locally built fork via KIT_IMAGE
+        run: |
+          mkdir -p dist
+          sudo sh scripts/test-custom-image-install.sh ghcr.io/iglace/abyssreader-server-kit:0.0.0-ci
       - name: Check digest pinning and stamp the isolated local fixture
         run: |
           sh scripts/test-install-digest.sh

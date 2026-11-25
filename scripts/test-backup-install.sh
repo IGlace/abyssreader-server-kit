@@ -111,7 +111,25 @@ cmp "$T/kept.tar" "$T/scheduled.tar"
 docker exec "$limited" abyssreader-server status
 docker rm -fv "$limited" >/dev/null
 trap - EXIT
-sh "$SCRIPT" restore --yes "$T/scheduled.tar" </dev/null
+# The scheduled backup came from a separate volume with its own signing key.
+# Restoring its data requires explicit approval and must keep the live key.
+save live-before-foreign-restore
+expect_failure sh "$SCRIPT" restore --yes "$T/scheduled.tar" </dev/null
+grep -Fq 'backup signing identity or definition versions differ from the live server' "$T/refusal.log"
+grep -Fq 'restore --allow-definition-rollback' "$T/refusal.log"
+healthy
+sh "$SCRIPT" restore --yes --allow-definition-rollback "$T/scheduled.tar" </dev/null
+healthy
+save live-after-foreign-restore
+python3 - "$T/live-before-foreign-restore.tar" "$T/scheduled.tar" "$T/live-after-foreign-restore.tar" <<'PY'
+import json, sys, tarfile
+def key_checksum(path):
+    with tarfile.open(path) as archive:
+        return json.load(archive.extractfile("backup.json"))["definitionKeySha256"]
+before, foreign, restored = map(key_checksum, sys.argv[1:])
+assert before and foreign and before != foreign, "expected independently generated signing keys"
+assert before == restored, "cross-volume restore replaced the live signing key"
+PY
 
 # Retain the starting image digest to stand in for the remote registry, including
 # pulling the previous image after the runner has genuinely evicted its local tag.
@@ -499,7 +517,8 @@ cleanup_final "$archive"
 reinstall_final() {
 	docker tag "$TEST_BASE_DIGEST" "$IMAGE"
 	sh "$SCRIPT" --answers "$T/answers.env" >/dev/null
-	sh "$SCRIPT" restore --yes "$T/repaired-final.tar" >/dev/null
+	# Reinstallation initialized a new key on the replacement volume.
+	sh "$SCRIPT" restore --yes --allow-definition-rollback "$T/repaired-final.tar" >/dev/null
 	check_data "$IMAGE" before
 	volume=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' "$(compose ps -q server)")
 }

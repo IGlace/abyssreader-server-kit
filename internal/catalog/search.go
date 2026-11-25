@@ -22,6 +22,7 @@ const VisibleTitle = `EXISTS (SELECT 1 FROM source_titles st JOIN sources s ON s
 type Sort string
 
 const (
+	SortAdded        Sort = "added"        // by collection membership order
 	SortLatest       Sort = "latest"       // by updatedAt (the default)
 	SortPopular      Sort = "popular"      // by rating, unrated titles last
 	SortTrending     Sort = "trending"     // by views
@@ -46,6 +47,8 @@ type Query struct {
 	HideBlacklistOf int64
 	// Library, when set, keeps only the titles on one of an account's lists (GET /me/library).
 	Library *Library
+	// CollectionID limits the result to one collection. Zero means all titles.
+	CollectionID int64
 }
 
 // Library names one of an account's library lists: favorite, planning or blacklist (the sync
@@ -83,6 +86,15 @@ func (c *Catalog) Search(ctx context.Context, q Query) (Page, error) {
 		return Page{}, err
 	}
 	defer tx.Rollback()
+	if q.CollectionID != 0 {
+		var present bool
+		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM collections WHERE id=?)", q.CollectionID).Scan(&present); err != nil {
+			return Page{}, err
+		}
+		if !present {
+			return Page{}, ErrNotFound
+		}
+	}
 	var total int64
 	if err := tx.QueryRowContext(ctx, countSQL, args...).Scan(&total); err != nil {
 		return Page{}, err
@@ -187,6 +199,8 @@ func (c *Catalog) searchSQL(q Query) (countSQL, pageSQL string, args []any) {
 	}
 	var order string
 	switch q.Sort {
+	case SortAdded:
+		order = "ct.position " + dir
 	case SortPopular:
 		order = "t.rating " + dir + " NULLS LAST"
 	case SortTrending:
@@ -196,8 +210,13 @@ func (c *Catalog) searchSQL(q Query) (countSQL, pageSQL string, args []any) {
 	default:
 		order = "t.updated_at " + dir
 	}
-	countSQL = `SELECT count(*) FROM titles t` + cond
-	pageSQL = `SELECT ` + titleColumns + ` FROM titles t` + cond +
+	from := " FROM titles t"
+	if q.CollectionID != 0 {
+		from += " JOIN collection_titles ct ON ct.title_id=t.id AND ct.collection_id=?"
+		args = append([]any{q.CollectionID}, args...)
+	}
+	countSQL = "SELECT count(*)" + from + cond
+	pageSQL = "SELECT " + titleColumns + from + cond +
 		` ORDER BY ` + order + `, t.id ASC LIMIT ? OFFSET ?`
 	return countSQL, pageSQL, args
 }

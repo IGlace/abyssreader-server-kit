@@ -23,20 +23,20 @@ The kit is **source-available** for noncommercial use only. See [`LICENSING.md`]
 
 ## What the server offers today
 
-Contract v1, the first slice:
+Contract v1:
 
 - `GET /api/status`: the server's name, whether an access key is required, whether sign-up is open, the **operator details** and the contract versions with their switched-on optional features. Always public.
 - Accounts (core): sign-up (a working session at once, any valid email, no email sending), sign-in, `GET`/`PUT /api/v1/me`, password change (a new token; every other session ends) and account deletion (everything the account created goes with it).
 - The **access key**, when the operator sets one: every route except `/api/status` needs `X-Access-Key` (`403 access_key_required` / `access_key_invalid`, never a sign-out).
 - The catalog (core): `GET /api/v1/titles` (search and browse: 1-based pages, `q`, the genre, status, language, source and rating filters, and the sorts `latest`, `popular`, `trending`, `alphabetical`), a title by id and by slug, `GET /api/v1/genres` and `GET /api/v1/sources`. Covers are served from the server's own storage.
-- Sources and definitions (core) as a server **without definitions**: an empty key list and an empty manifest (with `ETag` and `304`). Every source title has `hasDefinition: false`.
+- Sources and definitions (core): the key and manifest lists start empty. Operators can publish their own signed definitions. The manifest supports `ETag` and `304`.
 - **Library and sync** (core): `POST /api/v1/sync/push`, `GET /api/v1/sync/pull` and `GET /api/v1/me/library?list=favorite|planning|blacklist`; the caller's lists and vote in every title's `me`, and the search leaves out the caller's blacklist. See [Library and sync](#library-and-sync).
 - **Hosted chapters** (optional feature `hosted-chapters`, off by default): the server lists itself as the hosted source, `GET /api/v1/source-titles/{id}/chapters` and `GET /api/v1/chapters/{id}/pages`, and serves the page images from its own storage. See [Hosted chapters](#hosted-chapters).
 - `GET /healthz` for the container health check.
 
 - Optional error reporting to a GlitchTip or Sentry DSN, without emails, IP addresses or request bodies (`ABYSS_ERROR_REPORTING_DSN`).
 
-Operators can schedule and restore full-server snapshots and roll back a failed upgrade. See the [installer guide](docs/install.md#backups-and-restore). Source definitions come in a later kit release.
+Operators can schedule and restore full-server snapshots and roll back a failed upgrade. See the [installer guide](docs/install.md#backups-and-restore).
 
 ## Optional features
 
@@ -54,7 +54,12 @@ Enable `backup` to let signed-in readers download their library from `GET /api/v
 
 **Restore results.** A completed restore returns `200` with catalog matches, committed and skipped chapter marks, and up to 500 unmatched entries. A unique name match counts even when the entry has no list to add. After **any restore `503 unavailable`**, pull sync to receive committed changes, honor the integer-seconds `Retry-After` header, then offer to submit the same file again. Use the HTTP status and header even when the app translates the error code. Time and write cutoffs can be retried. A full account needs capacity and files above the chapter-retention limit need to be split. Rate and admission refusals return `429` with `Retry-After`.
 
-Enable `reports` to let signed-in readers report a title to the operator. Add `hosted-chapters` separately to serve chapters and page images from the kit.
+Enable `reports` for title reports, `comments` for title discussions and votes,
+`collections` for shared title lists and their discussions, and `stats` for
+reading statistics and rankings. The operator reviews content reports and
+handles removals and suspensions through the shell. [Moderation and purge](docs/reports-and-purge.md)
+
+Enable `hosted-chapters` to serve chapters and page images from the kit.
 
 ## Try it with Docker
 
@@ -69,6 +74,9 @@ The server listens on `127.0.0.1:8080` only. The app accepts only `https://` ser
 ## Install on a server
 
 On a Linux VPS, download `install.sh` from a kit release and run `sudo sh install.sh`: it checks Docker, asks the setup questions (inside the server image), writes `/opt/abyssreader-server/` (`compose.yaml` pinned to that release, `.env` chmod 600), sets up HTTPS with Caddy and Let's Encrypt or behind your own proxy, starts the server and waits for `/api/status`. `sudo sh install.sh configure` changes the settings later; `--answers FILE` runs it without questions. See [`docs/install.md`](docs/install.md).
+
+The matching operator workspace links to the [operator guides](docs/guides/README.md),
+[CLI and schemas](docs/reference/README.md), and [developer guides](docs/developers/README.md).
 
 ## Administration
 
@@ -166,13 +174,8 @@ Environment variables are the only way to configure the server. Every one is lis
 
 ## Development
 
-Go 1.27 and, for the generated queries, sqlc 1.31.1.
-
-```sh
-go test ./...                # unit tests, and every route's answers checked against contract/
-sqlc generate                # after changing internal/store/migrations or internal/store/queries
-scripts/check-licence-headers.sh
-```
+See [Contributing](CONTRIBUTING.md) for the Go and sqlc checks and the
+[developer guides](docs/developers/README.md) for building a fork.
 
 Migrations (goose, embedded) run forward only at start-up. Every table that holds something an account created references `users(id) ON DELETE CASCADE`; a test enforces it, so account deletion keeps removing everything.
 

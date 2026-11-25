@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright 2026 Abyss Reader
+name: Bug
+description: Report unexpected behavior in an official server kit image.
+title: "Bug: "
+body:
+  - type: input
+    id: release
+    attributes:
+      label: Kit release
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps, expected result and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Health output and recent logs
+      description: Paste the setup health output and a short log excerpt after removing credentials and personal data.

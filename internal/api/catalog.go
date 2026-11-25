@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/IGlace/abyssreader-server-kit/internal/catalog"
+	"github.com/IGlace/abyssreader-server-kit/internal/definitions"
 )
 
 // The contract's Title, sent whole: every field, null when it has no value.
@@ -142,6 +143,10 @@ func (s *server) titleBodies(r *http.Request, ts []catalog.Title) ([]titleBody, 
 	if err != nil {
 		return nil, err
 	}
+	active, err := definitions.ActiveSources(r.Context(), s.DB)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]titleBody, len(ts))
 	for i, t := range ts {
 		b := titleBody{
@@ -160,7 +165,7 @@ func (s *server) titleBodies(r *http.Request, ts []catalog.Title) ([]titleBody, 
 		for j, st := range t.Sources {
 			b.Sources[j] = sourceTitleBody{
 				ID: st.ID, SourceSlug: st.SourceSlug, URL: st.URL, Lang: st.Lang,
-				HasDefinition: !st.Hosted && s.hasDefinition(st.SourceSlug),
+				HasDefinition: !st.Hosted && active[st.SourceSlug],
 				ReadingMode:   st.ReadingMode,
 			}
 			if r := st.Rights; r != nil {

@@ -15,3 +15,9 @@ var syncSchema []byte
 
 // SyncSchemaJSON is the text of contract/sync/sync.schema.json.
 func SyncSchemaJSON() []byte { return bytes.Clone(syncSchema) }
+
+//go:embed contract/definition.schema.json
+var definitionSchema []byte
+
+// DefinitionSchemaJSON is the published schema for a resolved source definition.
+func DefinitionSchemaJSON() []byte { return bytes.Clone(definitionSchema) }

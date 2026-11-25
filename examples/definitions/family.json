@@ -1,0 +1,53 @@
+{
+  "$comment": "SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0. Copyright 2026 Abyss Reader.",
+  "schemaVersion": 1,
+  "execution": "client",
+  "capabilities": {
+    "supportsLatest": false,
+    "supportsSearch": false,
+    "requiresJs": false,
+    "cloudflare": false
+  },
+  "params": {"bookSelector": ".story"},
+  "operations": {
+    "popular": {
+      "request": {"method": "GET", "url": "{{baseUrl}}/"},
+      "steps": [
+        {"select": {"css": "{{params.bookSelector}}"}},
+        {"map": {"fields": {
+          "title": [{"select": {"css": "a", "text": true, "first": true}}],
+          "url": [{"select": {"css": "a", "attr": "href", "first": true}}]
+        }}}
+      ],
+      "output": "mangaList"
+    },
+    "details": {
+      "request": {"method": "GET", "url": "{{baseUrl}}{{manga.url}}"},
+      "steps": [
+        {"map": {"fields": {"title": [{"select": {"css": "h1", "text": true, "first": true}}]}}}
+      ],
+      "output": "manga"
+    },
+    "chapters": {
+      "request": {"method": "GET", "url": "{{baseUrl}}{{manga.url}}"},
+      "steps": [
+        {"select": {"css": ".chapter"}},
+        {"map": {"fields": {
+          "name": [{"select": {"css": "a", "text": true, "first": true}}],
+          "url": [{"select": {"css": "a", "attr": "href", "first": true}}]
+        }}}
+      ],
+      "output": "chapterList"
+    },
+    "pages": {
+      "request": {"method": "GET", "url": "{{baseUrl}}{{chapter.url}}"},
+      "steps": [
+        {"select": {"css": ".reading-page"}},
+        {"map": {"fields": {
+          "imageUrl": [{"select": {"css": "img", "attr": "src", "abs": true, "first": true}}]
+        }}}
+      ],
+      "output": "pageList"
+    }
+  }
+}

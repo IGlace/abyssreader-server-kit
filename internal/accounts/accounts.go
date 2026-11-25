@@ -80,7 +80,7 @@ func (s *Service) SignUp(ctx context.Context, displayName, email, pw string) (Se
 		return Session{}, err
 	}
 	var sess Session
-	err = s.inTx(ctx, func(q *sqlcdb.Queries) error {
+	err = s.inTx(ctx, func(_ *sql.Tx, q *sqlcdb.Queries) error {
 		now := s.ms()
 		u, err := q.CreateUser(ctx, sqlcdb.CreateUserParams{
 			Email: email, EmailKey: EmailKey(email), DisplayName: displayName,
@@ -124,15 +124,23 @@ func (s *Service) SignIn(ctx context.Context, email, pw string) (Session, error)
 		s.beforeSession()
 	}
 	token, b := newToken()
-	n, err := s.q.CreateSessionIfPasswordUnchanged(ctx, sqlcdb.CreateSessionIfPasswordUnchangedParams{
-		TokenHash: b, Now: s.ms(), UserID: u.ID, PasswordHash: u.PasswordHash,
+	err = s.inTx(ctx, func(tx *sql.Tx, q *sqlcdb.Queries) error {
+		n, err := q.CreateSessionIfPasswordUnchanged(ctx, sqlcdb.CreateSessionIfPasswordUnchangedParams{
+			TokenHash: b, Now: s.ms(), UserID: u.ID, PasswordHash: u.PasswordHash,
+		})
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			// The password changed or the account was disabled since the check.
+			return ErrWrongPassword
+		}
+		// An error rolls back the new session. Suspension and session creation
+		// take the same SQLite write lock so no token can outlive suspension.
+		return suspension(ctx, tx, u.ID)
 	})
 	if err != nil {
 		return Session{}, err
-	}
-	if n == 0 {
-		// The password changed or the account was disabled since the check.
-		return Session{}, ErrWrongPassword
 	}
 	return Session{Token: token, Account: toAccount(u)}, nil
 }
@@ -232,7 +240,14 @@ func (s *Service) ChangePassword(ctx context.Context, userID int64, current, nex
 		return Session{}, err
 	}
 	var sess Session
-	err = s.inTx(ctx, func(q *sqlcdb.Queries) error {
+	err = s.inTx(ctx, func(tx *sql.Tx, q *sqlcdb.Queries) error {
+		var suspended *Suspended
+		if err := suspension(ctx, tx, u.ID); err != nil {
+			if errors.As(err, &suspended) {
+				return ErrSessionInvalid
+			}
+			return err
+		}
 		// The user's own password: a temporary password's expiry is cleared.
 		if _, err := q.SetPasswordHash(ctx, sqlcdb.SetPasswordHashParams{PasswordHash: sql.NullString{String: hash, Valid: true}, UpdatedAt: s.ms(), ID: u.ID}); err != nil {
 			return err
@@ -292,7 +307,7 @@ func (s *Service) ResetPassword(ctx context.Context, email string) (string, time
 		return "", time.Time{}, err
 	}
 	until := s.now().Add(TemporaryPasswordLifetime)
-	err = s.inTx(ctx, func(q *sqlcdb.Queries) error {
+	err = s.inTx(ctx, func(_ *sql.Tx, q *sqlcdb.Queries) error {
 		if _, err := q.SetPasswordHash(ctx, sqlcdb.SetPasswordHashParams{
 			PasswordHash:           sql.NullString{String: hash, Valid: true},
 			PasswordTemporaryUntil: sql.NullInt64{Int64: until.UnixMilli(), Valid: true},
@@ -314,7 +329,7 @@ func (s *Service) Disable(ctx context.Context, email string) error {
 	if err != nil {
 		return err
 	}
-	return s.inTx(ctx, func(q *sqlcdb.Queries) error {
+	return s.inTx(ctx, func(_ *sql.Tx, q *sqlcdb.Queries) error {
 		now := s.ms()
 		if _, err := q.SetDisabledAt(ctx, sqlcdb.SetDisabledAtParams{DisabledAt: sql.NullInt64{Int64: now, Valid: true}, UpdatedAt: now, ID: u.ID}); err != nil {
 			return err
@@ -362,12 +377,12 @@ func newToken() (string, []byte) {
 	return token, hashToken(token)
 }
 
-func (s *Service) inTx(ctx context.Context, f func(*sqlcdb.Queries) error) error {
+func (s *Service) inTx(ctx context.Context, f func(*sql.Tx, *sqlcdb.Queries) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if err := f(s.q.WithTx(tx)); err != nil {
+	if err := f(tx, s.q.WithTx(tx)); err != nil {
 		tx.Rollback()
 		return err
 	}

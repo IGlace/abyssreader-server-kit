@@ -9,8 +9,13 @@ mkdir -p "$work"
 # Only the public URL with no outgoing credentials, identifiers or query string is allowed.
 cat >"$work/curl" <<'STUB'
 #!/bin/sh
-[ "$*" = "-q -fsS --proto =https --max-time 20 https://api.github.com/repos/IGlace/abyssreader-server-kit/releases/latest" ] || exit 99
-printf '{"assets":[{"tag_name":"99.1.0"}],"tag_name":"%s"}\n' "$TEST_LATEST_RELEASE"
+case "$*" in
+"-q -fsS --proto =https --max-time 20 https://api.github.com/repos/IGlace/abyssreader-server-kit/releases/latest")
+	printf '{"assets":[{"tag_name":"99.1.0"}],"tag_name":"%s"}\n' "$TEST_LATEST_RELEASE" ;;
+"-q -fsS --proto =https --max-time 20 --max-filesize 65536 https://abyssreader.com/app/compat.json")
+	printf '%s\n' '{"formatVersion":1,"supportSchedule":[{"contractMajor":1,"endDate":"2099-08-01"}]}' ;;
+*) exit 99 ;;
+esac
 STUB
 # Expose the system utilities and Docker, like a minimal host without Python.
 for cmd in sh docker awk cat cut head id sed grep uname chmod chown mkdir flock rm ln; do
@@ -24,6 +29,7 @@ export TEST_LATEST_RELEASE=1.2.3
 sh "$script" upgrade --check >"$work/online.log"
 grep -F "$installed" "$work/online.log" | grep -qi 'installed'
 grep -qx 'Latest kit release: 1.2.3' "$work/online.log"
+grep -Fq '2099-08-01' "$work/online.log"
 grep -Eiq 'newer|update .*available' "$work/online.log"
 TEST_LATEST_RELEASE=$installed
 sh "$script" upgrade --check >"$work/current.log"

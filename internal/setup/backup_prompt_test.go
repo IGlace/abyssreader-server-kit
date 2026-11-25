@@ -9,7 +9,7 @@ import (
 )
 
 func TestBackupDiskAndDisabledSchedule(t *testing.T) {
-	r := runSetup(t, nil, interactive("https://reader.example.org", "2", "", "Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "", "", "off", ""))
+	r := runSetup(t, nil, interactive("https://reader.example.org", "2", "", "Lantern", "Team", "mailto:t@example.org", "", "", "", "", "", "", "", "", "", "", "", "", "off", ""))
 	if r.err != nil {
 		t.Fatal(r.err)
 	}

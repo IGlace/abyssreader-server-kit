@@ -28,34 +28,8 @@ func routeActions(mux *http.ServeMux, pattern string, actions map[string]http.Ha
 	})
 }
 
-// Keep contract operations registered even when the kit can't switch the
-// feature on. All except Google's browser entry point go through v1 auth.
+// Google's browser entry point cannot require an access key.
 func registerUnavailableFeatures(v1, root *http.ServeMux) {
-	for path, allowed := range map[string][]string{
-		"/comments/{id}":                    {"PUT", "DELETE"},
-		"/comments/{id}/replies":            {"GET", "POST"},
-		"/comments/{id}/vote":               {"PUT"},
-		"/comments/{id}/reports":            {"POST"},
-		"/collections":                      {"GET", "POST"},
-		"/me/collections":                   {"GET"},
-		"/collections/{id}":                 {"GET", "PUT", "DELETE"},
-		"/collections/by-slug/{slug}":       {"GET"},
-		"/collection-comments/{id}":         {"PUT", "DELETE"},
-		"/collection-comments/{id}/replies": {"GET", "POST"},
-		"/collection-comments/{id}/vote":    {"PUT"},
-		"/collection-comments/{id}/reports": {"POST"},
-		"/me/stats":                         {"GET"},
-		"/rankings":                         {"GET"},
-		"/auth/google/token":                {"POST"},
-	} {
-		v1.HandleFunc(BasePath+path, disabledMethods(allowed...))
-	}
-	routeActions(v1, BasePath+"/collections/{id}/{action}", map[string]http.HandlerFunc{
-		"titles":   disabledMethods("GET"),
-		"vote":     disabledMethods("PUT"),
-		"reports":  disabledMethods("POST"),
-		"import":   disabledMethods("POST"),
-		"comments": disabledMethods("GET", "POST"),
-	})
+	v1.HandleFunc(BasePath+"/auth/google/token", disabledMethods("POST"))
 	root.HandleFunc(BasePath+"/auth/google/start", disabledMethods("GET"))
 }

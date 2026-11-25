@@ -96,8 +96,8 @@ func TestCheckFeatures(t *testing.T) {
 	if on, err := CheckFeatures(" hosted-chapters, hosted-chapters "); err != nil || len(on) != 1 {
 		t.Fatalf("%v %v", on, err)
 	}
-	if _, err := CheckFeatures("comments"); err == nil || !strings.Contains(err.Error(), "not in this kit version yet") {
-		t.Fatalf("comments: %v", err)
+	if _, err := CheckFeatures("google-sign-in"); err == nil || !strings.Contains(err.Error(), "not in this kit version yet") {
+		t.Fatalf("google-sign-in: %v", err)
 	}
 	if _, err := CheckFeatures("nope"); err == nil {
 		t.Fatal("an unknown feature must be refused")

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/IGlace/abyssreader-server-kit/internal/definitions"
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 )
@@ -153,6 +154,16 @@ func rawMembers(ctx context.Context, dir string, visit func(string, os.FileInfo)
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		if name == definitions.KeyFile {
+			if st, err := keyBackupInfo(dir); err == nil {
+				if err = visit(keyBackupMember, st); err != nil {
+					return err
+				}
+			} else if !os.IsNotExist(err) {
+				return err
+			}
+			continue
+		}
 		path := filepath.Join(dir, name)
 		st, err := os.Lstat(path)
 		if os.IsNotExist(err) && name != Database {
@@ -242,6 +253,19 @@ func verifyRaw(ctx context.Context, dir string, m manifest, checks imageChecks) 
 	}
 	for _, entry := range entries {
 		n := entry.Name()
+		if n == definitions.SecretsFolder {
+			if err := checkType(filepath.Join(dir, n), true); err != nil {
+				return err
+			}
+			files, err := os.ReadDir(filepath.Join(dir, n))
+			if err != nil {
+				return err
+			}
+			if len(files) != 1 || files[0].Name() != definitions.KeyFile {
+				return errors.New("unexpected raw signing key directory entry")
+			}
+			continue
+		}
 		if n != manifestFile && n != "pages" && n != "covers" && !isRawDBFile(n) {
 			return fmt.Errorf("unexpected raw generation entry %s", n)
 		}
@@ -291,6 +315,11 @@ func preserveRaw(ctx context.Context, data string, now time.Time, version string
 		}
 	}
 	err = rawMembers(ctx, data, func(rel string, _ os.FileInfo) error {
+		if rel == keyBackupMember {
+			if err := definitions.EnsureSecretsFolder(stage); err != nil {
+				return err
+			}
+		}
 		return copyImage(filepath.Join(data, rel), filepath.Join(stage, rel))
 	})
 	if err != nil {
@@ -313,6 +342,9 @@ func preserveRaw(ctx context.Context, data string, now time.Time, version string
 		return "", err
 	}
 	if err = verifyRaw(ctx, stage, m, nil); err != nil {
+		return "", err
+	}
+	if err = syncSecrets(stage); err != nil {
 		return "", err
 	}
 	for _, dir := range []string{"covers", "pages", "."} {
